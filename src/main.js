@@ -86,7 +86,7 @@ async function render(){
  const controller=new AbortController();
  translationController=controller;
  const serial=++renderSerial;
- const source=$("source").value.replace(/\\r\\n?/g,"\\n");
+ const source=$("source").value.replace(/\r\n?/g,"\n");
  if(!source.trim()){
   lines=[];setLoading(false);output.replaceChildren();status.textContent="";message("");return;
  }
@@ -97,7 +97,7 @@ async function render(){
  if(controller.signal.aborted||serial!==renderSerial)return;
  let result;
  try{
-  lines=source.split("\\n").map(analyzeLine);
+  lines=source.split("\n").map(analyzeLine);
   applyTranslations(lines,translations);
   const {total}=translationCandidates(lines,translations);
   if(total){
