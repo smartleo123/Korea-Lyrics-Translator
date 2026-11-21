@@ -79,7 +79,7 @@ export function normalizeMusicBrainzArtist(entry){
 }
 // Autoselect high-confidence K-pop results; avoid a wall of unrelated
 // artists merely because they contain the same letters somewhere.
-function cleanName(x){return String(x||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]/gu,"");}
+function cleanName(x){return String(x||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");}
 export function rankArtists(artists,query){
  const q=cleanName(query);
  return artists.map(artist=>{
