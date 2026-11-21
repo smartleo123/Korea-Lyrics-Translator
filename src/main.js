@@ -1,5 +1,6 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
+import {COMMON_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {splitLyrics} from "./layout.js";
 import {searchTracks,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
@@ -34,16 +35,28 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
-function analyzeLine(input){
-  if(!input)return [];
-  try{
-    const tokens=analyzer.analyze(input).tokens||[];
-    return annotateLine(input,tokens,hanja,overrides());
-  }catch(err){
-    console.warn("Garu analysis failed",err);
-    // A missing analyzer result must not be represented as a confident reading.
-    return annotateLine(input,[],hanja,overrides());
+function enhanceLine(parts,context){
+ for(const part of parts){
+  if(part.type==="ambiguous"){
+   const resolved=inferHanjaInContext(part.text,part.choices,context);
+   if(resolved)Object.assign(part,resolved);
   }
+  // A Chinese meaning is not evidence of native vs Sino-Korean origin.
+  if(["native","unknown"].includes(part.type)&&!part.gloss&&COMMON_GLOSSARY[part.text]){
+   part.gloss=COMMON_GLOSSARY[part.text];part.translationSource="curated";
+  }
+ }
+ return parts;
+}
+function analyzeLine(input){
+ if(!input)return [];
+ try{
+  const tokens=analyzer.analyze(input).tokens||[];
+  return enhanceLine(annotateLine(input,tokens,hanja,overrides()),input);
+ }catch(err){
+  console.warn("Garu analysis failed",err);
+  return enhanceLine(annotateLine(input,[],hanja,overrides()),input);
+ }
 }
 function draw(){
   const input=$("source").value.replace(/\r\n?/g,"\n");
