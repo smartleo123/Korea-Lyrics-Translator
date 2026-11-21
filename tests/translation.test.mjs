@@ -35,3 +35,20 @@ test('already aborted translation never calls the provider',async()=>{
  const result=await translateMissing([[{text:'사랑해요',type:'native',gloss:''}]],{signal:controller.signal,fetcher:async()=>{called++}});
  assert.equal(called,0);assert.equal(result.attempted,0);
 });
+
+test('retrieves Chinese meaning for ambiguous Hanja without inventing a spelling',()=>{
+ const lines=[[{text:'사고',type:'ambiguous',gloss:'',choices:['事故','思考'],source:'dictionary'}]];
+ assert.deepEqual(translationCandidates(lines,{}).words,['사고']);
+ applyTranslations(lines,{사고:'思考／事故'});
+ assert.equal(lines[0][0].type,'ambiguous');
+ assert.deepEqual(lines[0][0].choices,['事故','思考']);
+ assert.equal(lines[0][0].gloss,'思考／事故');
+});
+test('prioritizes repeated untranslated words while respecting the request cap',()=>{
+ const lines=[[{text:'희귀단어',type:'native',gloss:''}],
+ [{text:'꾸준한',type:'native',gloss:''},{text:'꾸준한',type:'native',gloss:''},{text:'보석함',type:'native',gloss:''}]];
+ const options=translationCandidates(lines,{},2);
+ assert.equal(options.total,3);
+ assert.equal(options.words[0],'꾸준한');
+ assert.equal(options.words.length,2);
+});
