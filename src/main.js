@@ -1,5 +1,6 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
+import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
 const KEY="korean-lyrics-custom-v1";
 const seed=[
@@ -9,7 +10,8 @@ const seed=[
 const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss,source:"seed"}]));
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
-let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null;
+let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null;
+let translations={};try{const t=JSON.parse(localStorage.getItem(CACHE_KEY)||"{}");if(t&&typeof t==="object"&&!Array.isArray(t))translations=t;}catch{}
 const output=$("output"),notice=$("notice"),status=$("stats");
 function message(s){notice.textContent=s;}
 async function initialize(){
@@ -39,9 +41,8 @@ function analyzeLine(input){
     return annotateLine(input,[],hanja,overrides());
   }
 }
-function render(){
-  if(!initialized){message("分析器尚未就緒。");return;}
-  const input=$("source").value.replace(/\r\n?/g,"\n");lines=input.split("\n").map(analyzeLine);
+function draw(){
+  const input=$("source").value.replace(/\r\n?/g,"\n");
   output.replaceChildren();
   const stats={hanja:0,native:0,loan:0,unknown:0,ambiguous:0};
   for(let i=0;i<lines.length;i++){
@@ -51,7 +52,7 @@ function render(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(w.type==="ambiguous"?"unknown":w.type);
-      element.tabIndex=0;element.title=w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
+      element.tabIndex=0;element.title=w.translationSource?"MyMemory 機器翻譯，非經詞典驗證；點擊修改":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(w.gloss||w.type==="ambiguous"||w.type==="unknown"){
         const note=document.createElement("span");note.className="gloss";
@@ -68,6 +69,33 @@ function render(){
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜固有詞 "+stats.native+"｜外來語 "+stats.loan+"｜歧義 "+stats.ambiguous+"｜待確認 "+stats.unknown;
   $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
   $("download").disabled=!input.trim();$("copy").disabled=!input.trim();
+}
+function render(){
+ if(!initialized){message("分析器尚未就緒。");return;}
+ if(translationController)translationController.abort();
+ translationController=new AbortController();
+ const input=$("source").value.replace(/\r\n?/g,"\n");
+ lines=input.split("\n").map(analyzeLine);
+ applyTranslations(lines,translations);
+ draw();
+ if($("machineTranslate").checked&&input.trim()) supplement(translationController.signal);
+}
+async function supplement(signal){
+ const {total}=translationCandidates(lines,translations);
+ if(!total){message("分析完成，已顯示已知的中文註解。");return;}
+ message("已完成詞源分析，正在向 MyMemory 補充 "+Math.min(total,40)+" 個缺少中文的詞彙…");
+ const result=await translateMissing(lines,{
+   cache:translations,signal,
+   onItem:()=>{
+     if(signal.aborted)return;
+     applyTranslations(lines,translations);
+     draw();
+     try{localStorage.setItem(CACHE_KEY,JSON.stringify(translations));}catch{}
+   }
+ });
+ if(signal.aborted)return;
+ const remain=result.total-result.attempted;
+ message("機譯補充 "+result.done+" 筆；未取得翻譯 "+result.failed+" 筆"+(remain?"；本次配額限制尚有 "+remain+" 筆未查詢":"")+"。≈ 代表機器翻譯，請依歌詞語境確認。");
 }
 function edit(i,j){
   currentSelected={i,j};
@@ -94,6 +122,7 @@ return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="vi
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $("annotate").onclick=render;
+$("machineTranslate").addEventListener("change",()=>{if(!$("machineTranslate").checked&&translationController){translationController.abort();message("已停止外部詞義翻譯。");}});
 $("sample").onclick=()=>{$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
 $("clear").onclick=()=>{$("source").value="";$("title").value="";render();};
 $("title").addEventListener("input",()=>{if(lines.length)$("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");});
