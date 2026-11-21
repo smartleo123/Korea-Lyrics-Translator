@@ -75,14 +75,14 @@ export async function searchMusicBrainzSongs(title,{artistName="",fetcher=fetch,
  if(!term)return [];
  const query=new URLSearchParams({query:term,fmt:"json",limit:"60"});
  const data=await throttledRequest("/recording/?"+query,{fetcher,signal});
- const artistSearch=String(artistName||"").normalize("NFKC").toLocaleLowerCase().replace(/[\\s._()\\-\\[\\]]+/g,"");
+ const artistSearch=String(artistName||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
  const entries=Array.isArray(data.recordings)?data.recordings:[];
  const output=[],seen=new Set();
  for(const entry of entries){
   const credit=Array.isArray(entry["artist-credit"])?entry["artist-credit"].find(x=>x&&typeof x==="object"&&x.artist):null;
   const name=credit?.artist?.name||credit?.name||"";
   if(!name)continue;
-  const normalized=name.normalize("NFKC").toLocaleLowerCase().replace(/[\\s._()\\-\\[\\]]+/g,"");
+  const normalized=name.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
   if(artistSearch&&!normalized.includes(artistSearch))continue;
   const artist={id:credit.artist.id||"",name,aliases:[]};
   const recording=normalizeRecording(entry,artist);
