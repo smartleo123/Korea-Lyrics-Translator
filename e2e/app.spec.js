@@ -58,3 +58,20 @@ test('selected Korean lyrics load but English-only results do not overwrite manu
  await expect(page.locator('#songSearchStatus')).toContainText('讀取失敗');
  await expect(page.locator('#source')).toHaveValue('기존 한국어 가사');
 });
+
+test('Korean lyric forms from screenshot get meanings and preserve the source lines',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
+  responseStatus:200,responseData:{translatedText:'詞義'}
+ }}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('꾸준한 네 좋아요\n비싼 보석함\n솔직함');
+ await page.locator('#annotate').click();
+ await expect(page.locator('.lyric-entry')).toHaveCount(3,{timeout:45000});
+ const text=await page.locator('#output').innerText();
+ expect(text).toContain('持續不懈的');
+ expect(text).toContain('昂貴的');
+ expect(text).toContain('珠寶盒');
+ expect(text).toContain('坦率');
+ await expect(page.locator('#loading')).toBeHidden();
+});
