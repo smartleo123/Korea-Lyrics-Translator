@@ -63,7 +63,7 @@ export function completeKnownCompoundSuffixes(parts){
    if(!entry||j<=i)continue;
    const suffix=result[j];
    if(suffix.text!==entry.suffix||suffix.gloss)continue;
-   if(!result.slice(i,j).some(p=>p.gloss&&/^[가-힣]+$/.test(p.text)))continue;
+   // The full compound itself is explicitly attested, so a potentially\n   // ambiguous or not-yet-glossed root can still retain a suffix meaning.
    suffix.gloss=entry.gloss;
    suffix.translationSource="curated-compound";
   }
