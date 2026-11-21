@@ -71,9 +71,14 @@ export function inspectLyricLanguage(raw){
  const latin=(text.match(/[a-zA-Z]/g)||[]).length;
  const letters=korean+latin;
  const ratio=letters?korean/letters:0;
- const koreanLines=text.split(/\r?\n/).filter(line=>(line.match(/[가-힣]/g)||[]).length>=3).length;
- const isKorean=korean>=4&&ratio>=0.1&&koreanLines>=1&&(letters<180||korean>=12||koreanLines>=2);
- return {isKorean,korean,latin,ratio,koreanLines};
+ const meaningfulLines=text.split(/\r?\n/).filter(line=>/[가-힣a-zA-Z]{2}/.test(line));
+ const koreanLines=meaningfulLines.filter(line=>(line.match(/[가-힣]/g)||[]).length>=3).length;
+ const lineRatio=meaningfulLines.length?koreanLines/meaningfulLines.length:0;
+ // Reject English/romanized covers with one incidental Hangul heading.
+ const isKorean=korean>=4&&ratio>=0.1&&koreanLines>=1
+   &&(meaningfulLines.length<=3||lineRatio>=0.2)
+   &&(letters<180||korean>=12||koreanLines>=2);
+ return {isKorean,korean,latin,ratio,koreanLines,lineRatio};
 }
 export function chooseKoreanLyrics(record){
  const candidates=[
