@@ -24,9 +24,9 @@ dialog{background:#1b2740;border:1px solid #7590b6;border-radius:16px;color:whit
 <div class="layout">
 <section class="panel"><h2>01　貼上韓文歌詞</h2><label for="title">歌曲名稱</label><input id="title" placeholder="例如：용서 못해" maxlength="120">
 <label for="artist">歌手名稱</label><input id="artist" placeholder="例如：차수경、IU、BTS（也可以只填歌手）" maxlength="120">
-<div class="actions"><button id="findLyrics" type="button">依歌名搜尋歌詞</button><button id="findArtistSongs" type="button">依歌手搜尋歌曲</button><a id="officialSearch" class="link-button" target="_blank" rel="noopener noreferrer" href="https://music.apple.com/tw/">查找官方歌曲及翻譯</a></div>
+<div class="actions"><button id="findLyrics" type="button">依歌名搜尋歌詞</button><button id="findArtistSongs" type="button">依歌手搜尋歌曲</button></div>
 <div id="songSearchStatus" class="hint" role="status" aria-live="polite"></div><div id="artistDirectory" class="artist-directory" hidden></div><div id="songResults" class="song-results" aria-label="歌曲搜尋結果"></div>
-<p class="hint">可只輸入歌手按「依歌手搜尋歌曲」；選擇正確的歌手後，可用 MusicBrainz 分頁載入更多曲目。曲目清單不是歌詞收錄保證，也不能保證等於完整官方作品目錄。也可填歌名搜尋。找到歌曲後，確認歌手與版本，再點「帶入歌詞」。手動貼上歌詞仍可使用。網路歌詞由第三方 LRCLIB 提供，可能有版本差異；部分作品不允許取得全文。</p>
+<p class="hint">只顯示一套 MusicBrainz 曲目清單：可輸入歌名直接找歌曲，或輸入歌手、選擇身分後分頁瀏覽更多曲目。選好歌曲再查韓文歌詞；不保證每首曲目都有歌詞。也可以自行貼上歌詞。</p>
 <label for="source">歌詞內容（可自行貼上或搜尋帶入）</label><textarea id="source" spellcheck="false" placeholder="把韓文歌詞貼在這裡…&#10;용서 못 해&#10;사랑이 너무 아파"></textarea>
 <details class="optional-translation"><summary>已有官方或授權的中文歌詞？可貼在這裡優先使用</summary><label for="providedChinese">自行提供的中文翻譯（依韓文逐行對齊）</label><textarea id="providedChinese" spellcheck="false" placeholder="若已有授權可使用的中文譯文，依韓文的行序貼在這裡。沒有的行將由 MyMemory 補譯。"></textarea><p class="hint">只有你自行提供的內容才會被當作優先譯文，網站不會宣稱未驗證的網路文字是官方版本。</p></details>
 <div class="actions"><button class="primary" id="annotate">自動標註歌詞</button><button id="sample">載入短句範例</button><button id="clear">清空</button></div><div id="notice" role="status"></div>
