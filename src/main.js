@@ -2,11 +2,11 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
-import {searchCatalog} from "./music-catalog.js";
-import {searchMusicBrainzArtists,getMusicBrainzRecordingPage,appendUniqueSongs} from "./musicbrainz.js";
+
+import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs} from "./musicbrainz.js";
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
-import {searchTracks,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
+import {searchTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
@@ -215,71 +215,6 @@ async function importTrack(track,versions,button,container,status){
  }catch(e){if(!controller.signal.aborted)status.textContent="讀取失敗："+e.message;}
  finally{button.disabled=false;}
 }
-function describeVersion(track,i){
- const duration=track.duration?Math.round(track.duration/60)+":"+String(Math.round(track.duration%60)).padStart(2,"0"):"";
- return [track.album||"版本 "+(i+1),duration].filter(Boolean).join(" · ");
-}
-function showSongResults(tracks,{artistMode,status,container}){
- const groups=groupArtistTracks(tracks);
- const heading=document.createElement("p");heading.className="song-results-title";
- heading.textContent=artistMode?"這位歌手的歌曲（共 "+groups.length+" 首曲名）":"找到 "+groups.length+" 首相關歌曲";
- container.append(heading);
- for(const group of groups){
-  const card=document.createElement("div");card.className="song-option";
-  const desc=document.createElement("div"),title=document.createElement("strong"),meta=document.createElement("small");
-  title.textContent=group.name||"未命名歌曲";
-  meta.textContent=group.artist+(group.versions.length>1?" · "+group.versions.length+" 個版本":" · "+(group.versions[0]?.album||""));
-  desc.append(title,meta);
-  const controls=document.createElement("div");controls.className="song-option-actions";
-  let select;
-  if(group.versions.length>1){
-   select=document.createElement("select");select.setAttribute("aria-label",group.name+" 版本");
-   group.versions.forEach((track,i)=>{
-    const option=document.createElement("option");option.value=String(i);
-    option.textContent=describeVersion(track,i)+(track.instrumental?"（純音樂）":"");
-    select.append(option);
-   });
-   controls.append(select);
-  }
-  const button=document.createElement("button");button.type="button";button.textContent="帶入歌詞";
-  const updateDisabled=()=>{const chosen=group.versions[Number(select?.value||0)];button.disabled=!!chosen.instrumental;};
-  select?.addEventListener("change",updateDisabled);
-  updateDisabled();
-  button.onclick=()=>importTrack(group.versions[Number(select?.value||0)],group.versions,button,container,status);
-  controls.append(button);
-  card.append(desc,controls);container.append(card);
- }
- const tip=document.createElement("p");tip.className="song-results-info";
- tip.textContent=artistMode?"LRCLIB 每次最多回傳 20 筆搜尋紀錄，這不是歌手的完整作品目錄；若找不到歌曲，可改用歌名搜尋或自行貼歌詞。":"搜尋結果依第三方曲目資料，請確認歌手與版本。";
- container.append(tip);
-}
-function showCatalogResults(tracks,{status,container}){
- const heading=document.createElement("p");heading.className="song-results-title";
- heading.textContent="更多歌曲（iTunes 曲目目錄，共 "+tracks.length+" 首）";
- container.append(heading);
- const info=document.createElement("p");info.className="song-results-info";
- info.textContent="這些是歌曲資料，不代表有可取得的韓文歌詞。點選後會再到 LRCLIB 查找。";
- container.append(info);
- for(const track of tracks){
-  const card=document.createElement("div");card.className="song-option";
-  const desc=document.createElement("div"),name=document.createElement("strong"),meta=document.createElement("small");
-  name.textContent=track.name;meta.textContent=[track.artist,track.album].filter(Boolean).join(" · ");
-  desc.append(name,meta);
-  const button=document.createElement("button");button.textContent="尋找韓文歌詞";button.type="button";
-  button.onclick=async()=>{
-   button.disabled=true;status.textContent="正在比對 LRCLIB 的韓文歌詞版本…";
-   try{
-    const suggestions=await searchTracks(track.name+" "+track.artist);
-    const safe=suggestions.filter(t=>t.name.normalize("NFKC").trim().toLowerCase()===track.name.normalize("NFKC").trim().toLowerCase() &&
-      t.artist.normalize("NFKC").toLowerCase().includes(track.artist.normalize("NFKC").toLowerCase()));
-    if(!safe.length)throw new Error("此曲目目前沒有可確認的 LRCLIB 歌詞，請自行貼上韓文歌詞。");
-    await importTrack(safe[0],safe,button,container,status);
-   }catch(e){status.textContent="無法取得歌詞："+e.message;}
-   finally{button.disabled=false;}
-  };
-  card.append(desc,button);container.append(card);
- }
-}
 // A canonical MusicBrainz artist ID lets the user browse beyond the 20 LRCLIB
 // results and the limited iTunes keyword search. Metadata is never lyrics.
 function directoryContainer(){return $("artistDirectory");}
@@ -298,7 +233,7 @@ function sameSongName(a,b){
  return String(a||"").normalize("NFKC").toLocaleLowerCase().trim()===String(b||"").normalize("NFKC").toLocaleLowerCase().trim();
 }
 function artistAliases(artist){
- return [artist.name,...artist.aliases].map(s=>String(s).normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]/gu,"")).filter(Boolean);
+ return [artist.name,...artist.aliases].map(s=>String(s).normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"")).filter(Boolean);
 }
 async function openMusicBrainzSong(track,state,button){
  const status=$("songSearchStatus");
@@ -310,7 +245,7 @@ async function openMusicBrainzSong(track,state,button){
   if(controller.signal.aborted)return;
   const aliases=artistAliases(state.artist);
   const qualified=matches.filter(t=>{
-   const name=String(t.artist||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\\p{L}\\p{N}]/gu,"");
+   const name=String(t.artist||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
    return sameSongName(t.name,track.name)&&aliases.some(alias=>alias===name||name.includes(alias)||alias.includes(name));
   });
   if(!qualified.length)throw new Error("曲目已找到，但 LRCLIB 尚無可確認的韓文歌詞。你仍可手動貼上。");
@@ -395,12 +330,25 @@ function showMusicBrainzArtists(artists,controller){
  }
  root.append(choices,chosen,directoryElement("div","directory-content"));
 }
+function showTitleMatches(tracks,controller){
+ const container=$("songResults");container.replaceChildren();
+ container.append(directoryElement("p","song-results-title","找到 "+tracks.length+" 首曲目（MusicBrainz）"));
+ for(const track of tracks){
+  const card=directoryElement("div","song-option");
+  const description=directoryElement("div");
+  description.append(directoryElement("strong","",track.name),directoryElement("small","",[track.artist,track.album].filter(Boolean).join(" · ")));
+  const button=directoryElement("button","","找韓文歌詞");button.type="button";
+  const state={artist:{name:track.artist,id:track.artistId,aliases:[]},controller};
+  button.onclick=()=>openMusicBrainzSong(track,state,button);
+  card.append(description,button);container.append(card);
+ }
+}
 async function runSongSearch(artistMode){
  const status=$("songSearchStatus"),container=$("songResults");
  const artist=$("artist").value.trim(),title=$("title").value.trim();
- const q=artistMode?artist:songQuery();
- if(!q){
-  status.textContent=artistMode?"請先在「歌手名稱」欄位輸入歌手。":"請先輸入歌名或搜尋關鍵字。";
+ const term=artistMode?artist:title;
+ if(!term){
+  status.textContent=artistMode?"請先輸入歌手名稱。":"請先輸入歌曲名稱。";
   return;
  }
  songSearchController?.abort();
@@ -408,31 +356,30 @@ async function runSongSearch(artistMode){
  resetArtistDirectory();
  const controller=new AbortController();songSearchController=controller;
  container.replaceChildren();
- status.textContent=artistMode?"正在查找歌手「"+artist+"」的相關歌曲…":"正在依歌名搜尋歌曲…";
+ status.textContent=artistMode?"正在搜尋歌手…":"正在搜尋歌曲…";
  $("findLyrics").disabled=true;$("findArtistSongs").disabled=true;
  try{
-  // Each provider fails independently; keep metadata discovery available
-  // even when the lyric provider is temporarily down.
-  const [lrclib,catalog,artistMatches]=await Promise.allSettled([
-    artistMode?searchArtistTracks(artist,{signal:controller.signal}):searchTracks(q,{signal:controller.signal}),
-    searchCatalog(artistMode?artist:q,{artistMode,signal:controller.signal}),
-    artistMode?searchMusicBrainzArtists(artist,{signal:controller.signal}):Promise.resolve([])
-  ]);
-  if(controller.signal.aborted)return;
-  const tracks=lrclib.status==="fulfilled"?lrclib.value:[];
-  const more=catalog.status==="fulfilled"?catalog.value:[];
-  const existing=new Set(tracks.map(t=>t.name.normalize("NFKC").toLowerCase().trim()+"|"+t.artist.normalize("NFKC").toLowerCase().trim()));
-  const catalogOnly=more.filter(t=>!existing.has(t.name.normalize("NFKC").toLowerCase().trim()+"|"+t.artist.normalize("NFKC").toLowerCase().trim()));
-  if(tracks.length)showSongResults(tracks,{artistMode,status,container});
-  if(catalogOnly.length)showCatalogResults(catalogOnly,{status,container});
-  if(artistMode&&artistMatches.status==="fulfilled")showMusicBrainzArtists(artistMatches.value,controller);
-  status.textContent=artistMode&&artistMatches.status==="fulfilled"&&artistMatches.value.length
-   ?"已找到候選歌手，請從 MusicBrainz 選擇正確身分以載入更多曲目。下方亦有其他來源的搜尋結果。"
-   :tracks.length||catalogOnly.length
-     ?"找到 "+(tracks.length+catalogOnly.length)+" 筆可瀏覽曲目；請選擇歌曲及版本。"
-     :"找不到相關曲目，請嘗試其他歌名／歌手名稱或自行貼上歌詞。";
- }catch(e){
-  if(!controller.signal.aborted)status.textContent="搜尋失敗："+e.message+"。可自行貼上歌詞。";
+  if(artistMode){
+   const artists=await searchMusicBrainzArtists(artist,{signal:controller.signal});
+   if(controller.signal.aborted)return;
+   if(!artists.length){
+    status.textContent="沒有找到歌手，請試試韓文或英文藝名；也可以自行貼上歌詞。";
+    return;
+   }
+   showMusicBrainzArtists(artists,controller);
+   status.textContent="請選擇正確歌手，再瀏覽並載入歌曲。";
+  }else{
+   const tracks=await searchMusicBrainzSongs(title,{artistName:artist,signal:controller.signal});
+   if(controller.signal.aborted)return;
+   if(!tracks.length){
+    status.textContent="找不到歌曲，請換一種拼寫方式搜尋，或自行貼上歌詞。";
+    return;
+   }
+   showTitleMatches(tracks,controller);
+   status.textContent="請選擇歌曲；按「找韓文歌詞」後會檢查是否有可用的韓文版本。";
+  }
+ }catch(err){
+  if(!controller.signal.aborted)status.textContent="搜尋失敗："+err.message+"。你仍可自行貼上歌詞。";
  }finally{
   if(songSearchController===controller){
    $("findLyrics").disabled=false;$("findArtistSongs").disabled=false;
