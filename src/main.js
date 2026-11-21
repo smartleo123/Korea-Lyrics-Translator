@@ -1,5 +1,5 @@
 import {Garu} from "garu-ko/browser";
-import {segmentByOffsets,annotateSpan,classifyHeadword} from "./engine.js";
+import {annotateLine} from "./engine.js";
 const $=id=>document.getElementById(id);
 const KEY="korean-lyrics-custom-v1";
 const seed=[
@@ -30,15 +30,14 @@ async function initialize(){
 }
 function analyzeLine(input){
   if(!input)return [];
-  let tokens=[];
-  try{tokens=analyzer.analyze(input).tokens||[];}catch(err){console.warn("Garu analysis failed",err);}
-  const spans=segmentByOffsets(input,tokens);
-  // Segments without morphological offsets still need split on word boundaries.
-  return spans.flatMap(span=>{
-    if(span.morphs.length)return annotateSpan(span,hanja,overrides());
-    const runs=span.surface.match(/([가-힣]+|[a-zA-Z][a-zA-Z0-9'_’\-]*|[^가-힣a-zA-Z]+)/g)||[];
-    return runs.flatMap(s=>annotateSpan({surface:s,morphs:[]},hanja,overrides()));
-  });
+  try{
+    const tokens=analyzer.analyze(input).tokens||[];
+    return annotateLine(input,tokens,hanja,overrides());
+  }catch(err){
+    console.warn("Garu analysis failed",err);
+    // A missing analyzer result must not be represented as a confident reading.
+    return annotateLine(input,[],hanja,overrides());
+  }
 }
 function render(){
   if(!initialized){message("分析器尚未就緒。");return;}
