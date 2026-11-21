@@ -17,7 +17,7 @@ export async function searchTracks(query,{fetcher=fetch,signal}={}){
 }
 export function decodeSyncedLyrics(raw){
  const lines=safeStr(raw).replace(/\r\n?/g,"\n").split("\n");
- return lines.map(line=>line.replace(/^\s*\[(?:\d{1,3}:)?\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*/,""))
+ return lines.map(line=>line.replace(/^\s*\[\d{1,3}:\d{2}(?:\.\d{1,3})?\]\s*/,""))
   .filter(line=>!/^\[(?:ar|al|ti|by|offset|length):/i.test(line))
   .join("\n").trim();
 }
