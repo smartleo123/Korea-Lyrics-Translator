@@ -23,7 +23,7 @@ words = {}
 for row in reader:
     word = (row.get("word") or "").strip()
     hanja = (row.get("hanja") or "").strip()
-    if not word or not hanja or not all("\uac00" <= c <= "\ud7a3" for c in word):
+    if len(word) < 2 or not hanja or not all("\uac00" <= c <= "\ud7a3" for c in word):
         continue
     vals = words.setdefault(word, [])
     if hanja not in vals:
