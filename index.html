@@ -22,8 +22,8 @@ dialog{background:#1b2740;border:1px solid #7590b6;border-radius:16px;color:whit
 @media(max-width:480px){.song-option{align-items:flex-start;flex-direction:column}.output-heading{align-items:flex-start}}
 </style></head><body><main><header><div class="eyebrow">KOREA LYRICS TRANSLATOR</div><h1>韓語歌詞詞源標註器</h1><p>貼上歌詞，即可逐行對照。<b style="color:var(--red)">紅色漢字詞</b>、<b>白色固有詞</b>、<b style="color:var(--violet)">紫色外來語</b>。原諺文保留，漢字與中文註解一開始就全部顯示。</p></header>
 <div class="layout">
-<section class="panel"><h2>01　貼上韓文歌詞</h2><label for="title">歌曲名稱</label><input id="title" placeholder="例如：용서 못해" maxlength="120">
-<label for="artist">歌手名稱</label><input id="artist" placeholder="例如：차수경、IU、BTS（也可以只填歌手）" maxlength="120">
+<section class="panel"><h2>01　貼上韓文歌詞</h2><label for="title">歌曲名稱</label><input id="title" placeholder="It′s Me" maxlength="120">
+<label for="artist">歌手名稱</label><input id="artist" placeholder="ILLIT" maxlength="120">
 <div class="actions"><button id="findLyrics" type="button">依歌名搜尋歌詞</button><button id="findArtistSongs" type="button">依歌手搜尋歌曲</button></div>
 <div id="songSearchStatus" class="hint" role="status" aria-live="polite"></div><div id="artistDirectory" class="artist-directory" hidden></div><div id="songResults" class="song-results" aria-label="歌曲搜尋結果"></div>
 <p class="hint">只顯示一套 MusicBrainz 曲目清單：可輸入歌名直接找歌曲，或輸入歌手、選擇身分後分頁瀏覽更多曲目。選好歌曲再查韓文歌詞；不保證每首曲目都有歌詞。也可以自行貼上歌詞。</p>
