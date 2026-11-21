@@ -16,8 +16,7 @@ const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
-let lineCache={};try{const o=JSON.parse(localStorage.getItem(LINE_CACHE_KEY)||"{}");if(o&&typeof o==="object"&&!Array.isArray(o))lineCache=o;}catch{}
-let translations={};try{const t=JSON.parse(localStorage.getItem(CACHE_KEY)||"{}");if(t&&typeof t==="object"&&!Array.isArray(t)){translations=Object.fromEntries(Object.entries(t).map(([k,v])=>[k,typeof v==="string"?v.replace(/^≈/,""):v]));}}catch{}
+let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 function message(s){notice.textContent=s;}
 async function initialize(){
@@ -127,12 +126,12 @@ async function render(){
    loadingDetail.textContent="正在取得中文詞義…";
    result=await translateMissing(lines,{
      cache:translations,signal:controller.signal,
-     onItem:()=>{try{localStorage.setItem(CACHE_KEY,JSON.stringify(translations));}catch{}}
+     onItem:()=>{saveCache(localStorage,CACHE_KEY,translations);}
    });
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
-  try{localStorage.setItem(CACHE_KEY,JSON.stringify(translations));}catch{}
+  saveCache(localStorage,CACHE_KEY,translations);
   if(showChinese){
     loadingDetail.textContent="正在準備逐行中文翻譯…";
     const lineResult=await translateLines(splitLyrics(source),{
@@ -141,7 +140,7 @@ async function render(){
     });
     if(controller.signal.aborted||serial!==renderSerial)return;
     lineTranslations=lineResult.rows;
-    try{localStorage.setItem(LINE_CACHE_KEY,JSON.stringify(lineCache));}catch{}
+    saveCache(localStorage,LINE_CACHE_KEY,lineCache);
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
@@ -337,7 +336,7 @@ $("toggleChinese").onclick=async()=>{
       onProgress:({attempted,total})=>{loadingDetail.textContent="逐行中文翻譯中 "+attempted+" / "+total+"…";}});
     if(controller.signal.aborted||serial!==renderSerial)return;
     lineTranslations=result.rows;
-    try{localStorage.setItem(LINE_CACHE_KEY,JSON.stringify(lineCache));}catch{}
+    saveCache(localStorage,LINE_CACHE_KEY,lineCache);
     draw();setLoading(false);
     message(result.failed||result.skipped?"逐行翻譯完成，部分句子無法取得譯文，保留韓文原文。":"逐行中文翻譯已顯示。");
   }catch(e){
