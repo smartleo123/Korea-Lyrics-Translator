@@ -26,37 +26,42 @@ test('manual lyrics preserve stanza breaks and show optional Chinese line transl
  await expect(page.locator('.line-translation')).toHaveCount(0);
 });
 
-test('artist search shows titles from lyric and backup catalogs',async({page})=>{
- await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[
-  {id:91,trackName:'밤편지',artistName:'IU',albumName:'Palette',instrumental:false}
- ]}));
- await page.route('https://itunes.apple.com/search?*',route=>route.fulfill({json:{results:[
-  {kind:'song',trackId:101,trackName:'좋은 날',artistName:'IU',collectionName:'Real'}
- ]}}));
+test('artist search displays only one MusicBrainz catalog',async({page})=>{
+ const id='6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489';
+ await page.unroute('https://musicbrainz.org/ws/2/**');
+ await page.route('https://musicbrainz.org/ws/2/**',route=>{
+  if(new URL(route.request().url()).pathname.endsWith('/artist/'))
+   return route.fulfill({json:{artists:[{id,name:'IU',country:'KR'}]}});
+  return route.fulfill({json:{'recording-count':1,recordings:[{id:'a',title:'밤편지'}]}});
+ });
  await page.goto('/');
  await page.locator('#artist').fill('IU');
  await page.locator('#findArtistSongs').click();
- console.log('ARTIST DEBUG',await page.locator('#songSearchStatus').textContent());
- await expect(page.locator('#songResults')).toContainText('밤편지');
- await expect(page.locator('#songResults')).toContainText('좋은 날');
- await expect(page.locator('#songResults')).toContainText('尋找韓文歌詞');
+ await expect(page.locator('#artistDirectory')).toBeVisible();
+ await expect(page.locator('#songResults')).toBeEmpty();
+ await page.locator('.artist-choices button').first().click();
+ await expect(page.locator('#artistDirectory')).toContainText('밤편지');
+ await expect(page.locator('#songResults')).toBeEmpty();
 });
 
-test('selected Korean lyrics load but English-only results do not overwrite manual text',async({page})=>{
+test('title search uses MusicBrainz and English lyrics never overwrite pasted input',async({page})=>{
+ await page.unroute('https://musicbrainz.org/ws/2/**');
+ await page.route('https://musicbrainz.org/ws/2/**',route=>route.fulfill({json:{recordings:[
+  {id:'rec44',title:'예시','artist-credit':[{artist:{id:'6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489',name:'가수'}}]}
+ ]}}));
  await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[
   {id:44,trackName:'예시',artistName:'가수',albumName:'Original',instrumental:false}
  ]}));
- await page.route('https://itunes.apple.com/search?*',route=>route.fulfill({json:{results:[]}}));
  await page.route('https://lrclib.net/api/get/44',route=>route.fulfill({json:{
-  id:44,trackName:'예시',artistName:'가수',plainLyrics:'I love you forever\nYou are my sunshine'
+  id:44,trackName:'예시',artistName:'가수',plainLyrics:'I love you forever\\nYou are my sunshine'
  }}));
  await page.goto('/');
  await page.locator('#source').fill('기존 한국어 가사');
  await page.locator('#title').fill('예시');
  await page.locator('#findLyrics').click();
- console.log('SEARCH DEBUG',await page.locator('#songSearchStatus').textContent());
- await page.getByRole('button',{name:'帶入歌詞'}).click();
- await expect(page.locator('#songSearchStatus')).toContainText('讀取失敗');
+ await expect(page.locator('#songResults')).toContainText('예시');
+ await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
+ await expect(page.locator('#songSearchStatus')).toContainText('無法帶入歌詞');
  await expect(page.locator('#source')).toHaveValue('기존 한국어 가사');
 });
 
