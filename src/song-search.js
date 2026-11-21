@@ -3,7 +3,7 @@
 const BASE="https://lrclib.net/api";
 function safeStr(x){return typeof x==="string"?x:"";}
 export function normalizeTrack(hit){
- if(!hit||!Number.isSafeInteger(Number(hit.id)))return null;
+ if(!hit||hit.id===null||hit.id===undefined||!Number.isSafeInteger(Number(hit.id))||Number(hit.id)<=0)return null;
  return {id:Number(hit.id),name:safeStr(hit.trackName),artist:safeStr(hit.artistName),album:safeStr(hit.albumName),duration:Number(hit.duration)||0,instrumental:!!hit.instrumental};
 }
 export async function searchTracks(query,{fetcher=fetch,signal}={}){
@@ -90,7 +90,7 @@ export function chooseKoreanLyrics(record){
  return korean.find(x=>x.kind==="plain")||korean[0]||null;
 }
 export async function getLyricsForTrack(id,{fetcher=fetch,signal}={}){
- if(!Number.isSafeInteger(Number(id))||Number(id)<1)throw new Error("無效的曲目 ID");
+ if(id===null||id===undefined||!Number.isSafeInteger(Number(id))||Number(id)<1)throw new Error("無效的曲目 ID");
  const r=await fetcher(BASE+"/get/"+Number(id),{signal,headers:{Accept:"application/json"}});
  if(!r.ok)throw new Error("LRCLIB 找不到這首歌的歌詞");
  const x=await r.json();
