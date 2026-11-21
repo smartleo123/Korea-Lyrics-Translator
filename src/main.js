@@ -188,10 +188,6 @@ function download(name,body,type){const url=URL.createObjectURL(new Blob([body],
 
 // Search by song name; only the selected LRCLIB record is imported.
 // Users can always paste or edit their own lyrics instead.
-function songQuery(){return [$("title").value.trim(),$("artist").value.trim()].filter(Boolean).join(" ");}
-function officialLink(){const q=songQuery();$("officialSearch").href="https://music.apple.com/tw/search?term="+encodeURIComponent(q||"Korean lyrics");}
-$("title").addEventListener("input",officialLink);
-$("artist").addEventListener("input",officialLink);
 // Shared song selection; searching by artist shows song names, with variants
 // grouped under each title. Selecting a version keeps the original lyric workflow.
 async function importTrack(track,versions,button,container,status){
@@ -208,7 +204,6 @@ async function importTrack(track,versions,button,container,status){
   $("source").value=selected.lyrics;
   $("providedChinese").value="";
   invalidateOutput();
-  officialLink();
   status.textContent=selected.usedAlternative?"原選版本不是韓文，已自動找到同首歌的韓文歌詞；請檢查內容並開始標註。":"已帶入 LRCLIB 韓文歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
   container.replaceChildren();
   $("source").focus();
@@ -434,7 +429,7 @@ $("providedChinese").addEventListener("input",()=>{
 $("annotate").onclick=render;
 
 $("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
-$("clear").onclick=()=>{songSearchController?.abort();lyricImportController?.abort();resetArtistDirectory();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";officialLink();render();};
+$("clear").onclick=()=>{songSearchController?.abort();lyricImportController?.abort();resetArtistDirectory();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";render();};
 $("title").addEventListener("input",()=>{if(lines.length)$("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");});
 $("download").onclick=()=>download(($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
 $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(p.gloss?"("+p.gloss+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
