@@ -69,6 +69,7 @@ test('Korean lyric forms from screenshot get meanings and preserve the source li
  await page.locator('#annotate').click();
  await expect(page.locator('.lyric-entry')).toHaveCount(3,{timeout:45000});
  const text=await page.locator('#output').innerText();
+ console.log('COMPOUND DEBUG',await page.locator('#output').innerHTML());
  expect(text).toContain('持續不懈的');
  expect(text).toContain('昂貴的');
  expect(text).toContain('보석(寶石)함(盒)');
