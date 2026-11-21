@@ -26,26 +26,42 @@ export function extractTranslation(payload,source){
  if(!/[\u3400-\u9fff]/.test(candidate))return "";
  return candidate.slice(0,100);
 }
-export async function translateOne(word,{fetcher=fetch,signal}={}){
+// Stop waiting on a stalled public API request; propagate a user cancellation.
+export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000}={}){
  const url="https://api.mymemory.translated.net/get?"+
   new URLSearchParams({q:word,langpair:"ko|zh-TW"}).toString();
- const response=await fetcher(url,{method:"GET",signal});
- if(!response.ok)throw new Error("翻譯 API HTTP "+response.status);
- return extractTranslation(await response.json(),word);
+ const controller=new AbortController();
+ const abort=()=>controller.abort();
+ if(signal?.aborted)throw new Error("請求已取消");
+ signal?.addEventListener("abort",abort,{once:true});
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{
+  const response=await fetcher(url,{method:"GET",signal:controller.signal});
+  if(!response.ok)throw new Error("翻譯 API HTTP "+response.status);
+  return extractTranslation(await response.json(),word);
+ }finally{
+  clearTimeout(timer);
+  signal?.removeEventListener("abort",abort);
+ }
 }
-export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onItem=()=>{},limit=DAILY_LIMIT}={}){
+// Back off after consecutive failures rather than issuing dozens of slow
+// requests to an unavailable/rate-limited free service.
+export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onItem=()=>{},limit=DAILY_LIMIT,maxFailures=3}={}){
  const {words,total}=translationCandidates(lines,cache,limit);
- let done=0,failed=0;
+ let done=0,failed=0,attempted=0,stopped=false;
+ let consecutiveFailures=0;
  for(const word of words){
   if(signal?.aborted)break;
+  attempted++;
   try{
    const translation=await translateOne(word,{fetcher,signal});
-   if(translation){cache[word]=translation;onItem(word,translation);done++;}
-   else failed++;
-  }catch(e){if(signal?.aborted)break;failed++;}
-  if(!signal?.aborted)await sleep(350);
+   if(translation){cache[word]=translation;onItem(word,translation);done++;consecutiveFailures=0;}
+   else {failed++;consecutiveFailures++;}
+  }catch(e){if(signal?.aborted)break;failed++;consecutiveFailures++;}
+  if(consecutiveFailures>=maxFailures){stopped=true;break;}
+  if(!signal?.aborted)await sleep(200);
  }
- return {done,failed,total,attempted:words.length,limited:total>words.length};
+ return {done,failed,total,attempted,skipped:Math.max(0,total-attempted),limited:total>words.length,stopped};
 }
 export function applyTranslations(lines,cache){
  for(const parts of lines)for(const part of parts){
