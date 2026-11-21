@@ -39,7 +39,8 @@ test('artist search displays only one MusicBrainz catalog',async({page})=>{
  await page.locator('#findArtistSongs').click();
  await expect(page.locator('#artistDirectory')).toBeVisible();
  await expect(page.locator('#songResults')).toBeEmpty();
- await page.locator('.artist-choices button').first().click();
+ await expect(page.locator('#artistDirectory .directory-selected')).toContainText('IU');
+ await expect(page.locator('#artistDirectory .artist-alternatives')).not.toHaveAttribute('open','');
  await expect(page.locator('#artistDirectory')).toContainText('밤편지');
  await expect(page.locator('#songResults')).toBeEmpty();
 });
@@ -107,7 +108,8 @@ test('artist identity allows loading multiple pages and selecting lyric lookup',
  await page.locator('#artist').fill('IU');
  await page.locator('#findArtistSongs').click();
  await expect(page.locator('#artistDirectory')).toBeVisible();
- await page.locator('.artist-choices button').first().click();
+ await expect(page.locator('#artistDirectory .directory-selected')).toContainText('IU');
+ await expect(page.locator('#artistDirectory .artist-alternatives')).not.toHaveAttribute('open','');
  await expect(page.locator('#artistDirectory')).toContainText('첫 번째 노래');
  await expect(page.locator('#artistDirectory .directory-track')).toHaveCount(1);
  await page.getByRole('button',{name:'載入更多歌曲（下一頁）'}).click();
@@ -116,4 +118,34 @@ test('artist identity allows loading multiple pages and selecting lyric lookup',
  await expect(page.getByRole('button',{name:'載入更多歌曲（下一頁）'})).toBeHidden();
  await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
  await expect(page.locator('#songSearchStatus')).toContainText('無法帶入歌詞');
+});
+
+test('K-pop artist auto-selects Korean group and recovers from transient 503',async({page})=>{
+ const kr='8cba0a73-8e92-4fbe-b7a4-0c622feaa012';
+ let attempts=0;
+ await page.unroute('https://musicbrainz.org/ws/2/**');
+ await page.route('https://musicbrainz.org/ws/2/**',route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/artist/')){
+   attempts++;
+   if(attempts===1)return route.fulfill({status:503,body:'Service Unavailable'});
+   return route.fulfill({json:{artists:[
+    {id:kr,name:'ILLIT',country:'KR',type:'Group',disambiguation:'South Korean girl group',score:100},
+    {id:'c736c987-5342-46a5-a227-c8d70adcc941',name:'Illit',country:'GB',disambiguation:'UK techno',score:91},
+    {id:'e6685fa1-9534-4143-a0ac-deadbeca9a9b',name:'illit rap',score:50}
+   ]}});
+  }
+  return route.fulfill({json:{'recording-count':2,recordings:[
+   {id:'one',title:'Magnetic'},{id:'two',title:"It's Me"}
+  ]}});
+ });
+ await page.goto('/');
+ await page.locator('#artist').fill('ILLIT');
+ await page.locator('#findArtistSongs').click();
+ await expect(page.locator('.directory-selected')).toContainText('ILLIT',{timeout:20000});
+ await expect(page.locator('#artistDirectory')).toContainText("It's Me",{timeout:20000});
+ await expect(page.locator('.artist-alternatives')).not.toHaveAttribute('open','');
+ await expect(page.locator('#artistDirectory .artist-choices button')).toHaveCount(3);
+ await expect(page.locator('#artistDirectory .artist-alternatives')).toContainText('不是這位歌手？切換歌手');
+ expect(attempts).toBe(2);
 });
