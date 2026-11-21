@@ -60,14 +60,42 @@ export function decodeSyncedLyrics(raw){
   .filter(line=>!/^\[(?:ar|al|ti|by|offset|length):/i.test(line))
   .join("\n").trim();
 }
+/**
+ * LRCLIB can contain English translations or romanized transcriptions for
+ * Korean tracks. Use the actual lyric script, never the song title language.
+ * Mixed Korean/English lyrics are acceptable if Korean text is substantial.
+ */
+export function inspectLyricLanguage(raw){
+ const text=safeStr(raw).replace(/\[[^\]\n]{1,80}\]/g,"").replace(/\([^\)\n]{1,30}\)/g,"");
+ const korean=(text.match(/[가-힣]/g)||[]).length;
+ const latin=(text.match(/[a-zA-Z]/g)||[]).length;
+ const letters=korean+latin;
+ const ratio=letters?korean/letters:0;
+ const koreanLines=text.split(/\r?\n/).filter(line=>(line.match(/[가-힣]/g)||[]).length>=3).length;
+ const isKorean=korean>=4&&ratio>=0.1&&koreanLines>=1&&(letters<180||korean>=12||koreanLines>=2);
+ return {isKorean,korean,latin,ratio,koreanLines};
+}
+export function chooseKoreanLyrics(record){
+ const candidates=[
+  {text:safeStr(record?.plainLyrics).trim(),kind:"plain"},
+  {text:decodeSyncedLyrics(record?.syncedLyrics),kind:"synced"}
+ ].filter(candidate=>candidate.text);
+ const korean=candidates.filter(x=>inspectLyricLanguage(x.text).isKorean);
+ // Preserve original unsynchronized paragraph structure whenever it is Korean.
+ return korean.find(x=>x.kind==="plain")||korean[0]||null;
+}
 export async function getLyricsForTrack(id,{fetcher=fetch,signal}={}){
  if(!Number.isSafeInteger(Number(id))||Number(id)<1)throw new Error("無效的曲目 ID");
  const r=await fetcher(BASE+"/get/"+Number(id),{signal,headers:{Accept:"application/json"}});
  if(!r.ok)throw new Error("LRCLIB 找不到這首歌的歌詞");
  const x=await r.json();
- const lyrics=safeStr(x.plainLyrics).trim()||decodeSyncedLyrics(x.syncedLyrics);
- if(x.instrumental||!lyrics)throw new Error("這個版本沒有可用的文字歌詞");
- return {lyrics,track:normalizeTrack(x),source:"LRCLIB"};
+ if(x.instrumental)throw new Error("這個版本是純音樂，沒有韓文歌詞");
+ const selected=chooseKoreanLyrics(x);
+ if(!selected){
+  const hasLyrics=safeStr(x.plainLyrics).trim()||safeStr(x.syncedLyrics).trim();
+  throw new Error(hasLyrics?"此版本提供的是英文／羅馬拼音歌詞，未找到足夠韓文內容":"這個版本沒有可用的文字歌詞");
+ }
+ return {lyrics:selected.text,track:normalizeTrack(x),source:"LRCLIB",lyricKind:selected.kind};
 }
 export function externalLyricsLinks(query){
  const q=String(query||"").trim();
