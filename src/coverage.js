@@ -63,7 +63,7 @@ export function completeKnownCompoundSuffixes(parts){
    if(!entry||j<=i)continue;
    const suffix=result[j];
    if(suffix.text!==entry.suffix||suffix.gloss)continue;
-   if(!result.slice(i,j).some(p=>p.type==="hanja"&&p.gloss))continue;
+   if(!result.slice(i,j).some(p=>p.gloss&&/^[가-힣]+$/.test(p.text)))continue;
    suffix.gloss=entry.gloss;
    suffix.translationSource="curated-compound";
   }
