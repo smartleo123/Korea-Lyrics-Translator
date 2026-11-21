@@ -13,7 +13,7 @@ const seed=[
 const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss,source:"seed"}]));
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
-let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null;
+let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
 let lineCache={};try{const o=JSON.parse(localStorage.getItem(LINE_CACHE_KEY)||"{}");if(o&&typeof o==="object"&&!Array.isArray(o))lineCache=o;}catch{}
 let translations={};try{const t=JSON.parse(localStorage.getItem(CACHE_KEY)||"{}");if(t&&typeof t==="object"&&!Array.isArray(t)){translations=Object.fromEntries(Object.entries(t).map(([k,v])=>[k,typeof v==="string"?v.replace(/^≈/,""):v]));}}catch{}
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
@@ -177,10 +177,13 @@ $("artist").addEventListener("input",officialLink);
 // Shared song selection; searching by artist shows song names, with variants
 // grouped under each title. Selecting a version keeps the original lyric workflow.
 async function importTrack(track,versions,button,container,status){
+ lyricImportController?.abort();
+ const controller=new AbortController();lyricImportController=controller;
  button.disabled=true;
  status.textContent="正在讀取 "+(track.name||"歌曲")+" 的歌詞…";
  try{
-  const selected=await getKoreanLyricsWithFallback(track,versions);
+  const selected=await getKoreanLyricsWithFallback(track,versions,{signal:controller.signal});
+  if(controller.signal.aborted)return;
   if(!selected.lyrics||!/[가-힣]/.test(selected.lyrics))throw new Error("未取得韓文原文，請手動貼上歌詞。");
   $("title").value=selected.track?.name||track.name;
   $("artist").value=selected.track?.artist||track.artist;
@@ -191,7 +194,7 @@ async function importTrack(track,versions,button,container,status){
   status.textContent=selected.usedAlternative?"原選版本不是韓文，已自動找到同首歌的韓文歌詞；請檢查內容並開始標註。":"已帶入 LRCLIB 韓文歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
   container.replaceChildren();
   $("source").focus();
- }catch(e){status.textContent="讀取失敗："+e.message;}
+ }catch(e){if(!controller.signal.aborted)status.textContent="讀取失敗："+e.message;}
  finally{button.disabled=false;}
 }
 function describeVersion(track,i){
@@ -241,6 +244,7 @@ async function runSongSearch(artistMode){
   return;
  }
  songSearchController?.abort();
+ lyricImportController?.abort();
  const controller=new AbortController();songSearchController=controller;
  container.replaceChildren();
  status.textContent=artistMode?"正在查找歌手「"+artist+"」的相關歌曲…":"正在依歌名搜尋歌曲…";
@@ -309,11 +313,11 @@ $("providedChinese").addEventListener("input",()=>{
 });
 $("annotate").onclick=render;
 
-$("sample").onclick=()=>{$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
-$("clear").onclick=()=>{$("source").value="";$("title").value="";render();};
+$("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
+$("clear").onclick=()=>{songSearchController?.abort();lyricImportController?.abort();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";officialLink();render();};
 $("title").addEventListener("input",()=>{if(lines.length)$("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");});
 $("download").onclick=()=>download(($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
-$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map(parts=>parts.map(p=>p.text+(p.gloss?"("+p.gloss+")":"")).join("")).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
+$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(p.gloss?"("+p.gloss+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
 $("exportDict").onclick=()=>download("korean-custom-dictionary.json",JSON.stringify(custom,null,2),"application/json");
 $("importDict").onclick=()=>$("dictFile").click();
 $("dictFile").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!data||Array.isArray(data)||typeof data!=="object")throw Error("JSON format");let n=0;for(const [word,v] of Object.entries(data)){if(!/^[가-힣]+$/.test(word)||!v||!["hanja","native","loan","unknown"].includes(v.type)||typeof v.gloss!=="string")continue;custom[word]={type:v.type,gloss:v.gloss,source:"custom"};n++;}localStorage.setItem(KEY,JSON.stringify(custom));render();message("已匯入 "+n+" 筆自訂詞彙。");}catch{message("匯入失敗：請檢查 JSON 格式。");}e.target.value="";});
