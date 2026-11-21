@@ -185,30 +185,6 @@ return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="vi
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 
-// Search by song name; only the selected LRCLIB record is imported.
-// Users can always paste or edit their own lyrics instead.
-// Shared song selection; searching by artist shows song names, with variants
-// grouped under each title. Selecting a version keeps the original lyric workflow.
-async function importTrack(track,versions,button,container,status){
- lyricImportController?.abort();
- const controller=new AbortController();lyricImportController=controller;
- button.disabled=true;
- status.textContent="正在讀取 "+(track.name||"歌曲")+" 的歌詞…";
- try{
-  const selected=await getKoreanLyricsWithFallback(track,versions,{signal:controller.signal});
-  if(controller.signal.aborted)return;
-  if(!selected.lyrics||!/[가-힣]/.test(selected.lyrics))throw new Error("未取得韓文原文，請手動貼上歌詞。");
-  $("title").value=selected.track?.name||track.name;
-  $("artist").value=selected.track?.artist||track.artist;
-  $("source").value=selected.lyrics;
-  $("providedChinese").value="";
-  invalidateOutput();
-  status.textContent=selected.usedAlternative?"原選版本不是韓文，已自動找到同首歌的韓文歌詞；請檢查內容並開始標註。":"已帶入 LRCLIB 韓文歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
-  container.replaceChildren();
-  $("source").focus();
- }catch(e){if(!controller.signal.aborted)status.textContent="讀取失敗："+e.message;}
- finally{button.disabled=false;}
-}
 function resetSongSearch(){
  songSearchController?.abort();lyricImportController?.abort();
  $("songResults").replaceChildren();$("songSearchStatus").textContent="";
