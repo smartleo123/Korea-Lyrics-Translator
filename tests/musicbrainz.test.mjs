@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {searchMusicBrainzArtists,getMusicBrainzRecordingPage,appendUniqueSongs,normalizeRecordingPage} from '../src/musicbrainz.js';
+import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs,normalizeRecordingPage} from '../src/musicbrainz.js';
 const artist={id:'6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489',name:'IU',aliases:['아이유'],country:'KR'};
 test('resolve artist identities with ids and aliases, not just name matches',async()=>{
  const urls=[];
@@ -39,4 +39,16 @@ test('retrieve recording pages by canonical artist id and advance offset using r
 test('empty final page stops pagination without presenting complete official discography guarantee',()=>{
  const page=normalizeRecordingPage({'recording-count':95,recordings:[]},artist,100);
  assert.equal(page.hasMore,false);
+});
+
+test('title search uses MusicBrainz recordings and filters matching artist names',async()=>{
+ const fetcher=async()=>({ok:true,json:async()=>({recordings:[
+  {id:'1',title:'밤편지','artist-credit':[{artist:{id:artist.id,name:'IU'}}]},
+  {id:'2',title:'밤편지','artist-credit':[{artist:{id:artist.id,name:'IU'}}]},
+  {id:'3',title:'밤편지','artist-credit':[{artist:{id:'other',name:'Other'}}]}
+ ]})});
+ const result=await searchMusicBrainzSongs('밤편지',{artistName:'IU',fetcher});
+ assert.equal(result.length,1);
+ assert.equal(result[0].name,'밤편지');
+ assert.equal(result[0].artist,'IU');
 });
