@@ -50,7 +50,7 @@ export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onIt
 export function applyTranslations(lines,cache){
  for(const parts of lines)for(const part of parts){
   if(["native","unknown"].includes(part.type)&&!part.gloss&&cache[part.text]){
-   part.gloss="≈"+cache[part.text];
+   part.gloss=cache[part.text];
    part.translationSource=PROVIDER;
   }
  }
