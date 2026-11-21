@@ -3,17 +3,22 @@
 // machine translated entry into a confirmed native / Sino-Korean word.
 import {translationScheduler} from "./request-scheduler.js";
 export const PROVIDER="MyMemory";
-export const DAILY_LIMIT=40;
+export const DAILY_LIMIT=80;
 export const CACHE_KEY="korean-lyrics-mymemory-cache-v1";
 export function translationCandidates(lines,cache={},max=DAILY_LIMIT){
- const unique=new Set();
+ const frequency=new Map();
  for(const items of lines)for(const p of items){
-   if(!["native","unknown"].includes(p.type)||p.gloss||!/^[가-힣]{2,}$/.test(p.text)||cache[p.text])continue;
-   // Grammatical endings are not standalone lexical words.
-   if(p.source==="grammar"||p.source==="pos"&&p.text.length<2)continue;
-   unique.add(p.text);
+   // Ambiguous Hanjas also need a Chinese meaning; that is NOT a Hanja
+   // spelling and does not resolve their etymological ambiguity.
+   if(!["native","unknown","ambiguous"].includes(p.type)||p.gloss||!/^[가-힣]{2,}$/.test(p.text)||cache[p.text])continue;
+   // Don't translate detached particles or grammatical endings as dictionary words.
+   if(p.source==="grammar")continue;
+   frequency.set(p.text,(frequency.get(p.text)||0)+1);
  }
- return {words:[...unique].slice(0,max),total:unique.size};
+ // Prioritize frequently used vocabulary: if the free service has a quota,
+ // a chorus repeated four times should be translated ahead of a one-off word.
+ const words=[...frequency].sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length||a[0].localeCompare(b[0])).map(([word])=>word);
+ return {words:words.slice(0,max),total:words.length};
 }
 export function extractTranslation(payload,source){
  if(!payload||Number(payload.responseStatus)!==200)return "";
@@ -65,7 +70,7 @@ export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onIt
 }
 export function applyTranslations(lines,cache){
  for(const parts of lines)for(const part of parts){
-  if(["native","unknown"].includes(part.type)&&!part.gloss&&cache[part.text]){
+  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&cache[part.text]){
    part.gloss=cache[part.text];
    part.translationSource=PROVIDER;
   }
