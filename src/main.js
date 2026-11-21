@@ -73,7 +73,7 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
-      element.tabIndex=0;element.title=w.translationSource?"MyMemory 機器翻譯，非經詞典驗證；點擊修改":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
+      element.tabIndex=0;element.title=w.translationSource==="MyMemory"?"MyMemory 機器翻譯，非經詞典驗證；點擊修改":w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(w.gloss){
         const note=document.createElement("span");note.className="gloss";
