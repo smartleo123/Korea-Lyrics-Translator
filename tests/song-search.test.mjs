@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchArtistTracks,groupArtistTracks,getLyricsForTrack,externalLyricsLinks} from '../src/song-search.js';
+import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchArtistTracks,groupArtistTracks,getLyricsForTrack,getKoreanLyricsWithFallback,inspectLyricLanguage,chooseKoreanLyrics,externalLyricsLinks} from '../src/song-search.js';
 test('song search keeps metadata and limits results',async()=>{
  const fetcher=async(url)=>({ok:true,json:async()=>[{id:17,trackName:'예시',artistName:'가수',albumName:'앨범',duration:120}]});
  const items=await searchTracks('예시',{fetcher});
@@ -40,4 +40,28 @@ test('artist search requires name and returns no unrelated items',async()=>{
   {id:20,trackName:'BTS',artistName:'Other',albumName:'none'}
  ]})});
  assert.equal(results.length,0);
+});
+
+test('reject all-English and romanized Korean lyrics but accept bilingual Korean/English',()=>{
+ assert.equal(inspectLyricLanguage("I love you forever\\nYou are the only one").isKorean,false);
+ assert.equal(inspectLyricLanguage("Saranghae neol wonhae\\nNae mameul arajwo").isKorean,false);
+ assert.equal(inspectLyricLanguage("사랑해 너를\\nI love you forever").isKorean,true);
+ assert.equal(chooseKoreanLyrics({plainLyrics:"I love you forever",syncedLyrics:"[00:01.00]사랑해 너를\\n[00:02.00]많이 보고 싶어"}).kind,"synced");
+});
+test('reject an English translation from the same song instead of importing it',async()=>{
+ const fetcher=async()=>({ok:true,json:async()=>({id:41,trackName:"테스트",artistName:"가수",plainLyrics:"Forever you are my love\\nI will never forget you"})});
+ await assert.rejects(getLyricsForTrack(41,{fetcher}),/영문|英文|羅馬拼音/);
+});
+test('retries a Korean alternate for the same title and artist only',async()=>{
+ const english={id:11,name:"사랑",artist:"가수",album:"English"},
+       korean={id:12,name:"사랑",artist:"가수",album:"Original"},
+       unrelated={id:13,name:"사랑",artist:"別人",album:"Other"};
+ const fetcher=async url=>({ok:true,json:async()=>url.endsWith("/11")?
+  {id:11,trackName:"사랑",artistName:"가수",plainLyrics:"I want to be with you\\nYou are my sunshine"}:
+  url.endsWith("/12")?{id:12,trackName:"사랑",artistName:"가수",plainLyrics:"사랑해 너를\\n많이 보고 싶어"}:
+  {id:13,trackName:"사랑",artistName:"別人",plainLyrics:"여기는 한국어\\n사랑을 해요"}
+ });
+ const result=await getKoreanLyricsWithFallback(english,[english,unrelated,korean],{fetcher,searcher:async()=>[]});
+ assert.equal(result.track.id,12);assert.equal(result.usedAlternative,true);
+ assert.match(result.lyrics,/사랑해/);
 });
