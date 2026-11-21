@@ -1,6 +1,8 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {splitLyrics} from "./layout.js";
+import {searchTracks,getLyricsForTrack,externalLyricsLinks} from "./song-search.js";
+import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
 const KEY="korean-lyrics-custom-v1";
@@ -11,7 +13,8 @@ const seed=[
 const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss,source:"seed"}]));
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
-let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0;
+let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null;
+let lineCache={};try{const o=JSON.parse(localStorage.getItem(LINE_CACHE_KEY)||"{}");if(o&&typeof o==="object"&&!Array.isArray(o))lineCache=o;}catch{}
 let translations={};try{const t=JSON.parse(localStorage.getItem(CACHE_KEY)||"{}");if(t&&typeof t==="object"&&!Array.isArray(t)){translations=Object.fromEntries(Object.entries(t).map(([k,v])=>[k,typeof v==="string"?v.replace(/^≈/,""):v]));}}catch{}
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 function message(s){notice.textContent=s;}
@@ -47,6 +50,7 @@ function draw(){
   output.replaceChildren();
   const stats={hanja:0,native:0,loan:0,unknown:0,ambiguous:0};
   for(let i=0;i<lines.length;i++){
+    const entry=document.createElement("div");entry.className="lyric-entry";
     const div=document.createElement("div");div.className="lyric-line";
     for(let j=0;j<lines[i].length;j++){
       const w=lines[i][j];
@@ -65,7 +69,9 @@ function draw(){
       div.append(element);
       stats[w.type]=(stats[w.type]||0)+1;
     }
-    output.append(div);
+    entry.append(div);
+    if(showChinese&&lineTranslations[i]?.text){const translation=document.createElement("div");translation.className="line-translation";translation.dataset.source=lineTranslations[i].source||"";translation.textContent=lineTranslations[i].text;translation.title=lineTranslations[i].source==="provided"?"自行提供的中文譯文":"MyMemory 機器翻譯，並非官方版本";entry.append(translation);}
+    output.append(entry);
   }
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜固有詞 "+(stats.native+stats.unknown+stats.ambiguous)+"｜外來語 "+stats.loan;
   $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
@@ -77,6 +83,7 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  status.hidden=isLoading;
  if(isLoading){loadingDetail.textContent=detail;output.replaceChildren();status.textContent="";}
  $("annotate").disabled=isLoading;
+ $("toggleChinese").disabled=isLoading;
  $("sample").disabled=isLoading;
  $("download").disabled=isLoading;
  $("copy").disabled=isLoading;
@@ -99,6 +106,7 @@ async function render(){
  let result;
  try{
   lines=splitLyrics(source).map(analyzeLine);
+  lineTranslations=[];
   applyTranslations(lines,translations);
   const {total}=translationCandidates(lines,translations);
   if(total){
@@ -111,6 +119,17 @@ async function render(){
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
   try{localStorage.setItem(CACHE_KEY,JSON.stringify(translations));}catch{}
+  if(showChinese){
+    loadingDetail.textContent="正在準備逐行中文翻譯…";
+    const lineResult=await translateLines(splitLyrics(source),{
+      provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
+      onProgress:({attempted,total})=>{loadingDetail.textContent="逐行中文翻譯中 "+attempted+" / "+total+"…";}
+    });
+    if(controller.signal.aborted||serial!==renderSerial)return;
+    lineTranslations=lineResult.rows;
+    try{localStorage.setItem(LINE_CACHE_KEY,JSON.stringify(lineCache));}catch{}
+  }
+  if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
   const missing=result?result.failed+Math.max(0,result.total-result.attempted):0;
   message(missing?"翻譯流程已結束；部分詞語因免費服務限制未取得中文詞義，已保留原文。":"歌詞標註完成。");
@@ -141,10 +160,88 @@ $("editForm").addEventListener("submit",e=>{
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function exportMarkup(){
 const title=$("title").value.trim()||"韓語歌詞詞源對照";
-const body=lines.map(parts=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(p.gloss?'<small>('+esc(p.gloss.replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>').join("\n");
-return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{background:#10151e;color:white;font:19px/2 system-ui,"Noto Sans KR","Noto Sans TC",sans-serif;max-width:820px;margin:35px auto;padding:0 20px}.hanja{color:#ff667e}.native{color:white}.loan{color:#c69bff}.unknown{color:#ffc77d}small{font-size:.74em;opacity:.8}.line{white-space:pre;min-height:1.6em;width:max-content;min-width:100%}small{white-space:nowrap}</style><h1>'+esc(title)+'</h1>'+body+'</html>';
+const body=lines.map((parts,index)=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(p.gloss?'<small>('+esc(p.gloss.replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>'+(showChinese&&lineTranslations[index]?.text?'<div class="translation">'+esc(lineTranslations[index].text)+'</div>':"")).join("\n");
+return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{background:#10151e;color:white;font:19px/2 system-ui,"Noto Sans KR","Noto Sans TC",sans-serif;max-width:820px;margin:35px auto;padding:0 20px}.hanja{color:#ff667e}.native{color:white}.loan{color:#c69bff}.unknown{color:#ffc77d}small{font-size:.74em;opacity:.8}.line{white-space:pre;min-height:1.6em;width:max-content;min-width:100%}small{white-space:nowrap}.translation{white-space:pre;color:#b7cced;font-size:.85em;border-left:2px solid #42658d;padding-left:12px;margin-bottom:10px}</style><h1>'+esc(title)+'</h1>'+body+'</html>';
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+
+// Search by song name; only the selected LRCLIB record is imported.
+// Users can always paste or edit their own lyrics instead.
+function songQuery(){return [$("title").value.trim(),$("artist").value.trim()].filter(Boolean).join(" ");}
+function officialLink(){const q=songQuery();$("officialSearch").href="https://music.apple.com/tw/search?term="+encodeURIComponent(q||"Korean lyrics");}
+$("title").addEventListener("input",officialLink);
+$("artist").addEventListener("input",officialLink);
+$("findLyrics").onclick=async()=>{
+  const q=songQuery(),status=$("songSearchStatus"),container=$("songResults");
+  container.replaceChildren();
+  if(!q){status.textContent="請先輸入歌名。";return;}
+  songSearchController?.abort();songSearchController=new AbortController();
+  const signal=songSearchController.signal;
+  status.textContent="正在網路搜尋歌曲…";
+  $("findLyrics").disabled=true;
+  try{
+    const tracks=await searchTracks(q,{signal});
+    if(signal.aborted)return;
+    if(!tracks.length){status.textContent="沒有找到符合的曲目，仍可自行貼上歌詞。";return;}
+    status.textContent="找到 "+tracks.length+" 個版本，請先確認歌手再帶入歌詞。";
+    for(const track of tracks){
+      const card=document.createElement("div");card.className="song-option";
+      const desc=document.createElement("div"),name=document.createElement("strong"),meta=document.createElement("small");
+      name.textContent=track.name||"未命名歌曲";
+      meta.textContent=[track.artist,track.album].filter(Boolean).join(" · ");
+      desc.append(name,meta);
+      const btn=document.createElement("button");btn.type="button";btn.textContent="帶入歌詞";
+      btn.disabled=track.instrumental;
+      btn.onclick=async()=>{
+        btn.disabled=true;status.textContent="正在讀取 "+(track.name||"歌曲")+" 的歌詞…";
+        try{
+          const selected=await getLyricsForTrack(track.id);
+          $("title").value=selected.track?.name||track.name;
+          $("artist").value=selected.track?.artist||track.artist;
+          $("source").value=selected.lyrics;
+          $("providedChinese").value="";
+          officialLink();
+          status.textContent="已帶入 LRCLIB 歌詞，請確認版本。按「自動標註歌詞」開始分析。";
+          container.replaceChildren();
+          $("source").focus();
+        }catch(e){status.textContent="讀取失敗："+e.message;}
+        finally{btn.disabled=false;}
+      };
+      card.append(desc,btn);container.append(card);
+    }
+  }catch(e){if(!signal.aborted)status.textContent="搜尋失敗："+e.message+"。可自行貼上歌詞。";}
+  finally{$("findLyrics").disabled=false;}
+};
+$("toggleChinese").onclick=async()=>{
+  showChinese=!showChinese;
+  $("toggleChinese").setAttribute("aria-pressed",String(showChinese));
+  $("toggleChinese").textContent=showChinese?"隱藏逐行中文翻譯":"顯示逐行中文翻譯";
+  if(!lines.length)return;
+  if(!showChinese){draw();return;}
+  const source=splitLyrics($("source").value);
+  const provided=alignProvidedTranslations(source,$("providedChinese").value);
+  const needs=source.some((line,i)=>line.trim()&&!provided[i]&&!lineCache[line]);
+  if(!needs){lineTranslations=provided.map((x,i)=>x||(lineCache[source[i]]?{text:lineCache[source[i]],source:"MyMemory"}:null));draw();return;}
+  // Translation is completed before any annotated output is revealed again.
+  if(translationController)translationController.abort();
+  translationController=new AbortController();const serial=++renderSerial,controller=translationController;
+  setLoading(true,"逐行中文翻譯中…");
+  await new Promise(resolve=>requestAnimationFrame(resolve));
+  try{
+    const result=await translateLines(source,{provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
+      onProgress:({attempted,total})=>{loadingDetail.textContent="逐行中文翻譯中 "+attempted+" / "+total+"…";}});
+    if(controller.signal.aborted||serial!==renderSerial)return;
+    lineTranslations=result.rows;
+    try{localStorage.setItem(LINE_CACHE_KEY,JSON.stringify(lineCache));}catch{}
+    draw();setLoading(false);
+    message(result.failed||result.skipped?"逐行翻譯完成，部分句子無法取得譯文，保留韓文原文。":"逐行中文翻譯已顯示。");
+  }catch(e){
+    if(controller.signal.aborted||serial!==renderSerial)return;
+    lineTranslations=provided;draw();setLoading(false);
+    message("逐行翻譯服務暫時無法使用，已保留現有文字。");
+  }
+};
+
 $("annotate").onclick=render;
 
 $("sample").onclick=()=>{$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
