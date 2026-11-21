@@ -2,6 +2,7 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {searchCatalog} from "./music-catalog.js";
+import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
 import {searchTracks,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
