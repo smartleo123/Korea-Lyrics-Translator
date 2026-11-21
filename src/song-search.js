@@ -97,6 +97,52 @@ export async function getLyricsForTrack(id,{fetcher=fetch,signal}={}){
  }
  return {lyrics:selected.text,track:normalizeTrack(x),source:"LRCLIB",lyricKind:selected.kind};
 }
+/**
+ * If a selected LRCLIB version is romanized/English, check other recordings
+ * of the same song. Never silently substitute another artist or song title.
+ */
+export async function getKoreanLyricsWithFallback(track,versions=[],{fetcher=fetch,signal,searcher=searchTracks}={}){
+ const variants=[track,...versions].filter(Boolean);
+ const seen=new Set(),candidates=[];
+ const add=candidate=>{
+  if(!candidate||seen.has(candidate.id)||normalizeArtist(candidate.artist)!==normalizeArtist(track.artist)||candidate.name.normalize("NFKC").toLowerCase().trim()!==track.name.normalize("NFKC").toLowerCase().trim())return;
+  seen.add(candidate.id);candidates.push(candidate);
+ };
+ variants.forEach(add);
+ let lastError;
+ async function tryCandidates(){
+  for(const candidate of candidates){
+   if(signal?.aborted)throw new Error("搜尋已取消");
+   if(candidate.instrumental)continue;
+   try{
+    const found=await getLyricsForTrack(candidate.id,{fetcher,signal});
+    return {...found,usedAlternative:candidate.id!==track.id};
+   }catch(err){
+    if(signal?.aborted)throw err;
+    lastError=err;
+   }
+  }
+  return null;
+ }
+ const first=await tryCandidates();
+ if(first)return first;
+ // Retry a focused lookup when the original broad search gave only English.
+ const more=await searcher([track.name,track.artist].filter(Boolean).join(" "),{fetcher,signal}).catch(()=>[]);
+ const previousCount=candidates.length;
+ more.forEach(add);
+ if(candidates.length>previousCount){
+  const later=candidates.slice(previousCount);
+  for(const candidate of later){
+   if(signal?.aborted)throw new Error("搜尋已取消");
+   if(candidate.instrumental)continue;
+   try{
+    const found=await getLyricsForTrack(candidate.id,{fetcher,signal});
+    return {...found,usedAlternative:true};
+   }catch(err){if(signal?.aborted)throw err;lastError=err;}
+  }
+ }
+ throw new Error("找不到這首歌的韓文原文版本；LRCLIB 可能只有英文翻譯或羅馬拼音。請改選其他版本，或自行貼上韓文歌詞。");
+}
 export function externalLyricsLinks(query){
  const q=String(query||"").trim();
  return [
