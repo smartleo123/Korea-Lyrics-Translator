@@ -71,7 +71,7 @@ test('Korean lyric forms from screenshot get meanings and preserve the source li
  const text=await page.locator('#output').innerText();
  expect(text).toContain('持續不懈的');
  expect(text).toContain('昂貴的');
- expect(text).toContain('珠寶盒');
+ expect(text).toContain('보석(寶石)함(盒)');
  expect(text).toContain('坦率');
  await expect(page.locator('#loading')).toBeHidden();
 });
