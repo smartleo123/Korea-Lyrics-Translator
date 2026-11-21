@@ -1,6 +1,7 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
-import {COMMON_GLOSSARY,inferHanjaInContext} from "./glossary.js";
+import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
+import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {searchCatalog} from "./music-catalog.js";
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -37,14 +38,15 @@ async function initialize(){
   }
 }
 function enhanceLine(parts,context){
+ parts=completeUnannotatedKorean(parts,LYRIC_SURFACE_GLOSSARY);
  for(const part of parts){
   if(part.type==="ambiguous"){
    const resolved=inferHanjaInContext(part.text,part.choices,context);
    if(resolved)Object.assign(part,resolved);
   }
   // A Chinese meaning is not evidence of native vs Sino-Korean origin.
-  if(["native","unknown"].includes(part.type)&&!part.gloss&&COMMON_GLOSSARY[part.text]){
-   part.gloss=COMMON_GLOSSARY[part.text];part.translationSource="curated";
+  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&(LYRIC_SURFACE_GLOSSARY[part.text]||COMMON_GLOSSARY[part.text])){
+   part.gloss=LYRIC_SURFACE_GLOSSARY[part.text]||COMMON_GLOSSARY[part.text];part.translationSource="curated";
   }
  }
  return parts;
@@ -87,7 +89,8 @@ function draw(){
     if(showChinese&&lineTranslations[i]?.text){const translation=document.createElement("div");translation.className="line-translation";translation.dataset.source=lineTranslations[i].source||"";translation.textContent=lineTranslations[i].text;translation.title=lineTranslations[i].source==="provided"?"自行提供的中文譯文":"MyMemory 機器翻譯，並非官方版本";entry.append(translation);}
     output.append(entry);
   }
-  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜固有詞 "+(stats.native+stats.unknown+stats.ambiguous)+"｜外來語 "+stats.loan;
+  const coverage=countKoreanCoverage(lines);
+  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
   $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
   $("download").disabled=!input.trim();$("copy").disabled=!input.trim();
 }
