@@ -1,7 +1,7 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {splitLyrics} from "./layout.js";
-import {searchTracks,searchArtistTracks,groupArtistTracks,getLyricsForTrack} from "./song-search.js";
+import {searchTracks,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
@@ -173,17 +173,18 @@ $("title").addEventListener("input",officialLink);
 $("artist").addEventListener("input",officialLink);
 // Shared song selection; searching by artist shows song names, with variants
 // grouped under each title. Selecting a version keeps the original lyric workflow.
-async function importTrack(track,button,container,status){
+async function importTrack(track,versions,button,container,status){
  button.disabled=true;
  status.textContent="正在讀取 "+(track.name||"歌曲")+" 的歌詞…";
  try{
-  const selected=await getLyricsForTrack(track.id);
+  const selected=await getKoreanLyricsWithFallback(track,versions);
+  if(!selected.lyrics||!/[가-힣]/.test(selected.lyrics))throw new Error("未取得韓文原文，請手動貼上歌詞。");
   $("title").value=selected.track?.name||track.name;
   $("artist").value=selected.track?.artist||track.artist;
   $("source").value=selected.lyrics;
   $("providedChinese").value="";
   officialLink();
-  status.textContent="已帶入 LRCLIB 歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
+  status.textContent=selected.usedAlternative?"原選版本不是韓文，已自動找到同首歌的韓文歌詞；請檢查內容並開始標註。":"已帶入 LRCLIB 韓文歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
   container.replaceChildren();
   $("source").focus();
  }catch(e){status.textContent="讀取失敗："+e.message;}
@@ -219,7 +220,7 @@ function showSongResults(tracks,{artistMode,status,container}){
   const updateDisabled=()=>{const chosen=group.versions[Number(select?.value||0)];button.disabled=!!chosen.instrumental;};
   select?.addEventListener("change",updateDisabled);
   updateDisabled();
-  button.onclick=()=>importTrack(group.versions[Number(select?.value||0)],button,container,status);
+  button.onclick=()=>importTrack(group.versions[Number(select?.value||0)],group.versions,button,container,status);
   controls.append(button);
   card.append(desc,controls);container.append(card);
  }
