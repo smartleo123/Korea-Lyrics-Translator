@@ -43,3 +43,30 @@ export function countKoreanCoverage(lines){
  }
  return {words,glossed,missing:words-glossed};
 }
+
+
+// Certain compound nouns have a verified headword and a meaningful suffix.
+// Annotate the suffix without replacing the verified Hanja stem. Keep this
+// deliberately narrow; unverified suffix derivations are not guessed.
+const COMPOUND_SUFFIXES={
+ "보석함":{suffix:"함",gloss:"盒"}
+};
+export function completeKnownCompoundSuffixes(parts){
+ const result=parts.map(part=>({...part}));
+ for(let i=0;i<result.length;i++){
+  let joined="";
+  for(let j=i;j<result.length&&j<i+4;j++){
+   const part=result[j];
+   if(!/^[가-힣]+$/.test(part.text))break;
+   joined+=part.text;
+   const entry=COMPOUND_SUFFIXES[joined];
+   if(!entry||j<=i)continue;
+   const suffix=result[j];
+   if(suffix.text!==entry.suffix||suffix.gloss)continue;
+   if(!result.slice(i,j).some(p=>p.type==="hanja"&&p.gloss))continue;
+   suffix.gloss=entry.gloss;
+   suffix.translationSource="curated-compound";
+  }
+ }
+ return result;
+}
