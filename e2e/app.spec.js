@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
 test.beforeEach(async({page})=>{
+ await page.route('https://musicbrainz.org/ws/2/**',route=>route.fulfill({json:{artists:[]}}));
  page.on('pageerror',err=>console.log('BROWSER PAGE ERROR:',err.stack||err.message));
  page.on('console',msg=>{if(msg.type()==='error')console.log('BROWSER CONSOLE ERROR:',msg.text());});
 });
@@ -75,4 +76,39 @@ test('Korean lyric forms from screenshot get meanings and preserve the source li
  expect(text).toContain('보석(寶石)함(盒)');
  expect(text).toContain('坦率');
  await expect(page.locator('#loading')).toBeHidden();
+});
+
+test('artist identity allows loading multiple pages and selecting lyric lookup',async({page})=>{
+ const mbid='6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489';
+ await page.unroute('https://musicbrainz.org/ws/2/**');
+ await page.route('https://musicbrainz.org/ws/2/**',route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname.endsWith('/artist/'))return route.fulfill({json:{artists:[
+   {id:mbid,name:'IU',country:'KR',aliases:[{name:'아이유'}],score:100}
+  ]}});
+  const offset=Number(url.searchParams.get('offset')||0);
+  return route.fulfill({json:{
+   'recording-count':4,
+   recordings:offset===0?[
+    {id:'a',title:'첫 번째 노래'},{id:'b',title:'첫 번째 노래'}
+   ]:[
+    {id:'c',title:'두 번째 노래'},{id:'d',title:'세 번째 노래'}
+   ]
+  }});
+ });
+ await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[]}));
+ await page.route('https://itunes.apple.com/search?*',route=>route.fulfill({json:{results:[]}}));
+ await page.goto('/');
+ await page.locator('#artist').fill('IU');
+ await page.locator('#findArtistSongs').click();
+ await expect(page.locator('#artistDirectory')).toBeVisible();
+ await page.locator('.artist-choices button').first().click();
+ await expect(page.locator('#artistDirectory')).toContainText('첫 번째 노래');
+ await expect(page.locator('#artistDirectory .directory-track')).toHaveCount(1);
+ await page.getByRole('button',{name:'載入更多歌曲（下一頁）'}).click();
+ await expect(page.locator('#artistDirectory')).toContainText('세 번째 노래');
+ await expect(page.locator('#artistDirectory .directory-track')).toHaveCount(3);
+ await expect(page.getByRole('button',{name:'載入更多歌曲（下一頁）'})).toBeHidden();
+ await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
+ await expect(page.locator('#songSearchStatus')).toContainText('無法帶入歌詞');
 });
