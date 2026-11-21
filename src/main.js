@@ -15,7 +15,7 @@ function message(s){notice.textContent=s;}
 async function initialize(){
   message("正在載入韓語形態分析模型及漢字詞典…");
   try{
-    const [g,dictResponse]=await Promise.all([Garu.load({modelUrl:new URL("./model.gmdl",import.meta.url).href}),fetch(new URL("./hanja-dict.json",import.meta.url))]);
+    const [g,dictResponse]=await Promise.all([Garu.load({modelUrl:import.meta.env.BASE_URL+"model.gmdl"}),fetch(import.meta.env.BASE_URL+"hanja-dict.json")]);
     if(!dictResponse.ok)throw new Error("漢字詞典 HTTP "+dictResponse.status);
     const raw=await dictResponse.json();
     hanja=new Map(Object.entries(raw));analyzer=g;initialized=true;
