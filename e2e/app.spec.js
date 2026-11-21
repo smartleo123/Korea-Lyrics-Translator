@@ -61,7 +61,7 @@ test('title search uses MusicBrainz and English lyrics never overwrite pasted in
  await page.locator('#findLyrics').click();
  await expect(page.locator('#songResults')).toContainText('예시');
  await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
- await expect(page.locator('#songSearchStatus')).toContainText('無法帶入歌詞');
+ await expect(page.locator('#songSearchStatus')).toContainText('讀取失敗');
  await expect(page.locator('#source')).toHaveValue('기존 한국어 가사');
 });
 
