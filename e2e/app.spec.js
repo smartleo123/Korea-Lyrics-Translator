@@ -1,6 +1,5 @@
 import {test,expect} from '@playwright/test';
 test.beforeEach(async({page})=>{
- await page.route('https://musicbrainz.org/ws/2/**',route=>route.fulfill({json:{artists:[]}}));
  page.on('pageerror',err=>console.log('BROWSER PAGE ERROR:',err.stack||err.message));
  page.on('console',msg=>{if(msg.type()==='error')console.log('BROWSER CONSOLE ERROR:',msg.text());});
 });
@@ -26,42 +25,37 @@ test('manual lyrics preserve stanza breaks and show optional Chinese line transl
  await expect(page.locator('.line-translation')).toHaveCount(0);
 });
 
-test('artist search displays only one MusicBrainz catalog',async({page})=>{
- const id='6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489';
- await page.unroute('https://musicbrainz.org/ws/2/**');
- await page.route('https://musicbrainz.org/ws/2/**',route=>{
-  if(new URL(route.request().url()).pathname.endsWith('/artist/'))
-   return route.fulfill({json:{artists:[{id,name:'IU',country:'KR'}]}});
-  return route.fulfill({json:{'recording-count':1,recordings:[{id:'a',title:'밤편지'}]}});
- });
+test('LRCLIB artist search gives one compact list of song titles',async({page})=>{
+ await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[
+  {id:91,trackName:'밤편지',artistName:'IU',albumName:'Palette'},
+  {id:92,trackName:'밤편지',artistName:'IU',albumName:'Live'},
+  {id:93,trackName:'좋은 날',artistName:'IU',albumName:'Real'},
+  {id:94,trackName:'IU Song',artistName:'Someone Else'}
+ ]}));
  await page.goto('/');
  await page.locator('#artist').fill('IU');
  await page.locator('#findArtistSongs').click();
- await expect(page.locator('#artistDirectory')).toBeVisible();
- await expect(page.locator('#songResults')).toBeEmpty();
- await expect(page.locator('#artistDirectory .directory-selected')).toContainText('IU');
- await expect(page.locator('#artistDirectory .artist-alternatives')).not.toHaveAttribute('open','');
- await expect(page.locator('#artistDirectory')).toContainText('밤편지');
- await expect(page.locator('#songResults')).toBeEmpty();
+ await expect(page.locator('#songResults')).toContainText('밤편지');
+ await expect(page.locator('#songResults')).toContainText('좋은 날');
+ await expect(page.locator('.song-option')).toHaveCount(2);
+ await expect(page.locator('.song-option select')).toHaveCount(1);
+ await expect(page.locator('#songResults')).not.toContainText('Someone Else');
 });
 
-test('title search uses MusicBrainz and English lyrics never overwrite pasted input',async({page})=>{
- await page.unroute('https://musicbrainz.org/ws/2/**');
- await page.route('https://musicbrainz.org/ws/2/**',route=>route.fulfill({json:{recordings:[
-  {id:'rec44',title:'예시','artist-credit':[{artist:{id:'6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489',name:'가수'}}]}
- ]}}));
+test('LRCLIB title lookup does not replace manual input with English lyrics',async({page})=>{
  await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[
-  {id:44,trackName:'예시',artistName:'가수',albumName:'Original',instrumental:false}
+  {id:44,trackName:'예시',artistName:'가수',albumName:'Original'}
  ]}));
  await page.route('https://lrclib.net/api/get/44',route=>route.fulfill({json:{
-  id:44,trackName:'예시',artistName:'가수',plainLyrics:'I love you forever\\nYou are my sunshine'
+  id:44,trackName:'예시',artistName:'가수',
+  plainLyrics:'I love you forever\nYou are my sunshine'
  }}));
  await page.goto('/');
  await page.locator('#source').fill('기존 한국어 가사');
  await page.locator('#title').fill('예시');
  await page.locator('#findLyrics').click();
  await expect(page.locator('#songResults')).toContainText('예시');
- await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
+ await page.getByRole('button',{name:'帶入歌詞'}).first().click();
  await expect(page.locator('#songSearchStatus')).toContainText('讀取失敗');
  await expect(page.locator('#source')).toHaveValue('기존 한국어 가사');
 });
@@ -84,68 +78,3 @@ test('Korean lyric forms from screenshot get meanings and preserve the source li
  await expect(page.locator('#loading')).toBeHidden();
 });
 
-test('artist identity allows loading multiple pages and selecting lyric lookup',async({page})=>{
- const mbid='6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489';
- await page.unroute('https://musicbrainz.org/ws/2/**');
- await page.route('https://musicbrainz.org/ws/2/**',route=>{
-  const url=new URL(route.request().url());
-  if(url.pathname.endsWith('/artist/'))return route.fulfill({json:{artists:[
-   {id:mbid,name:'IU',country:'KR',aliases:[{name:'아이유'}],score:100}
-  ]}});
-  const offset=Number(url.searchParams.get('offset')||0);
-  return route.fulfill({json:{
-   'recording-count':4,
-   recordings:offset===0?[
-    {id:'a',title:'첫 번째 노래'},{id:'b',title:'첫 번째 노래'}
-   ]:[
-    {id:'c',title:'두 번째 노래'},{id:'d',title:'세 번째 노래'}
-   ]
-  }});
- });
- await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[]}));
- await page.route('https://itunes.apple.com/search?*',route=>route.fulfill({json:{results:[]}}));
- await page.goto('/');
- await page.locator('#artist').fill('IU');
- await page.locator('#findArtistSongs').click();
- await expect(page.locator('#artistDirectory')).toBeVisible();
- await expect(page.locator('#artistDirectory .directory-selected')).toContainText('IU');
- await expect(page.locator('#artistDirectory .artist-alternatives')).not.toHaveAttribute('open','');
- await expect(page.locator('#artistDirectory')).toContainText('첫 번째 노래');
- await expect(page.locator('#artistDirectory .directory-track')).toHaveCount(1);
- await page.getByRole('button',{name:'載入更多歌曲（下一頁）'}).click();
- await expect(page.locator('#artistDirectory')).toContainText('세 번째 노래');
- await expect(page.locator('#artistDirectory .directory-track')).toHaveCount(3);
- await expect(page.getByRole('button',{name:'載入更多歌曲（下一頁）'})).toBeHidden();
- await page.getByRole('button',{name:'找韓文歌詞'}).first().click();
- await expect(page.locator('#songSearchStatus')).toContainText('無法帶入歌詞');
-});
-
-test('K-pop artist auto-selects Korean group and recovers from transient 503',async({page})=>{
- const kr='8cba0a73-8e92-4fbe-b7a4-0c622feaa012';
- let attempts=0;
- await page.unroute('https://musicbrainz.org/ws/2/**');
- await page.route('https://musicbrainz.org/ws/2/**',route=>{
-  const url=new URL(route.request().url());
-  if(url.pathname.endsWith('/artist/')){
-   attempts++;
-   if(attempts===1)return route.fulfill({status:503,body:'Service Unavailable'});
-   return route.fulfill({json:{artists:[
-    {id:kr,name:'ILLIT',country:'KR',type:'Group',disambiguation:'South Korean girl group',score:100},
-    {id:'c736c987-5342-46a5-a227-c8d70adcc941',name:'Illit',country:'GB',disambiguation:'UK techno',score:91},
-    {id:'e6685fa1-9534-4143-a0ac-deadbeca9a9b',name:'illit rap',score:50}
-   ]}});
-  }
-  return route.fulfill({json:{'recording-count':2,recordings:[
-   {id:'one',title:'Magnetic'},{id:'two',title:"It's Me"}
-  ]}});
- });
- await page.goto('/');
- await page.locator('#artist').fill('ILLIT');
- await page.locator('#findArtistSongs').click();
- await expect(page.locator('.directory-selected')).toContainText('ILLIT',{timeout:20000});
- await expect(page.locator('#artistDirectory')).toContainText("It's Me",{timeout:20000});
- await expect(page.locator('.artist-alternatives')).not.toHaveAttribute('open','');
- await expect(page.locator('#artistDirectory .artist-choices button')).toHaveCount(3);
- await expect(page.locator('#artistDirectory .artist-alternatives')).toContainText('不是這位歌手？切換歌手');
- expect(attempts).toBe(2);
-});
