@@ -1,0 +1,15 @@
+{
+  "name": "korea-lyrics-translator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "garu-ko": "0.14.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}
