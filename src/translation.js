@@ -1,10 +1,10 @@
 // Optional, best-effort machine translation for Korean vocabulary.
 // It supplies Chinese meaning, NOT etymology or Hanja. Never promotes a
 // machine translated entry into a confirmed native / Sino-Korean word.
+import {translationScheduler} from "./request-scheduler.js";
 export const PROVIDER="MyMemory";
 export const DAILY_LIMIT=40;
 export const CACHE_KEY="korean-lyrics-mymemory-cache-v1";
-const sleep=(n)=>new Promise(resolve=>setTimeout(resolve,n));
 export function translationCandidates(lines,cache={},max=DAILY_LIMIT){
  const unique=new Set();
  for(const items of lines)for(const p of items){
@@ -36,7 +36,7 @@ export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000}={
  signal?.addEventListener("abort",abort,{once:true});
  const timer=setTimeout(()=>controller.abort(),timeoutMs);
  try{
-  const response=await fetcher(url,{method:"GET",signal:controller.signal});
+  const response=await translationScheduler.run(()=>fetcher(url,{method:"GET",signal:controller.signal}),{signal:controller.signal});
   if(!response.ok)throw new Error("翻譯 API HTTP "+response.status);
   return extractTranslation(await response.json(),word);
  }finally{
@@ -59,7 +59,7 @@ export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onIt
    else {failed++;consecutiveFailures++;}
   }catch(e){if(signal?.aborted)break;failed++;consecutiveFailures++;}
   if(consecutiveFailures>=maxFailures){stopped=true;break;}
-  if(!signal?.aborted)await sleep(200);
+
  }
  return {done,failed,total,attempted,skipped:Math.max(0,total-attempted),limited:total>words.length,stopped};
 }
