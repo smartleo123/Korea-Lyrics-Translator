@@ -34,3 +34,15 @@ npm run build
 - Garu 原始碼與形態分析模型相關資訊：[Apache-2.0 / NOTICE](https://github.com/ongjin/garu/blob/main/NOTICE)，其詞典衍生資料含 CC BY-SA 2.0 KR 條款，請參閱原始 NOTICE。
 - HanjaHanja Dictionary：資料源為 **국립국어원 우리말샘／표준국어대사전**，經 HanjaHanja 加工的漢字詞表採 **CC BY-SA 2.0 KR**（署名・相同方式分享）。網站生成的 `hanja-dict.json` 屬該資料衍生作品，須遵守相同條款。來源：[專案及資料授權](https://github.com/ongocompany/hanjahanja-dict)。
 - 本站不內建或重發布受著作權保護的歌曲歌詞；使用者自行貼上的內容僅在瀏覽器處理。
+
+## 免費韓中機器翻譯補充
+
+站內提供預設勾選的「自動補上未收錄固有詞的中文意思」功能。使用者點擊「自動標註歌詞」後，先執行 Garu 分析與詞源查詢，再把沒有中文釋義的**單個韓語詞彙**（而非整首歌）透過 [MyMemory 公開翻譯 API](https://mymemory.translated.net/doc/spec.php) 嘗試翻成繁體中文。
+
+- 不需要 Google API 金鑰；採免費第三方服務，受可用性、每日配額、跨網域限制等因素影響。
+- 每次最多查詢 40 個不同詞彙，每次請求間隔約 350 毫秒。相同詞的譯文快取在本地瀏覽器；不會重複翻譯已知註解。
+- 繁體中文機器翻譯前方加上 **≈**，代表**機譯且可能失準**，不能證明漢字詞的詞源。
+- **取消勾選**就不會向外部傳送詞彙；已取得的本機譯文仍可顯示。
+- 外部服務回覆失敗、沒有翻譯或配額不足時保留原詞，不編造中文字。
+- 若要穩定、準確的上下文翻譯，可後續用官方 Google Cloud Translation API（需 Google Cloud 計費設定和安全的伺服器端代理）。**不建議把 Google Cloud API 金鑰直接寫在公開 GitHub Pages 前端**。
+
