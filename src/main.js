@@ -1,5 +1,6 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
+import {splitLyrics} from "./layout.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
 const KEY="korean-lyrics-custom-v1";
@@ -97,7 +98,7 @@ async function render(){
  if(controller.signal.aborted||serial!==renderSerial)return;
  let result;
  try{
-  lines=source.split("\n").map(analyzeLine);
+  lines=splitLyrics(source).map(analyzeLine);
   applyTranslations(lines,translations);
   const {total}=translationCandidates(lines,translations);
   if(total){
