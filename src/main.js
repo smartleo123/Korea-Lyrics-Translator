@@ -1,7 +1,7 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
-import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
+import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
 import {searchCatalog} from "./music-catalog.js";
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -38,7 +38,7 @@ async function initialize(){
   }
 }
 function enhanceLine(parts,context){
- parts=completeUnannotatedKorean(parts,LYRIC_SURFACE_GLOSSARY);
+ parts=completeKnownCompoundSuffixes(completeUnannotatedKorean(parts,LYRIC_SURFACE_GLOSSARY));
  for(const part of parts){
   if(part.type==="ambiguous"){
    const resolved=inferHanjaInContext(part.text,part.choices,context);
