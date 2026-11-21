@@ -23,7 +23,7 @@ export function alignProvidedTranslations(koreanLines,provided){
 }
 export async function translateLines(koreanLines,{provided="",cache={},fetcher=fetch,signal,onProgress=()=>{},limit=70}={}){
  const out=alignProvidedTranslations(koreanLines,provided);
- let translated=0,failed=0,attempted=0;
+ let translated=0,failed=0,attempted=0,consecutiveFailures=0,stopped=false;
  const unique=new Map();
  koreanLines.forEach((text,i)=>{
   if(!text.trim()||out[i])return;
@@ -41,12 +41,13 @@ export async function translateLines(koreanLines,{provided="",cache={},fetcher=f
    const result=await translateOne(text,{fetcher,signal});
    if(result){
     for(const i of indices)out[i]={text:result,source:"MyMemory"};
-    cache[text]=result;translated++;
-   }else failed++;
-  }catch(err){if(signal?.aborted)break;failed++;}
+    cache[text]=result;translated++;consecutiveFailures=0;
+   }else {failed++;consecutiveFailures++;}
+  }catch(err){if(signal?.aborted)break;failed++;consecutiveFailures++;}
   onProgress({attempted,total:pending.length,translated,failed});
+  if(consecutiveFailures>=3){stopped=true;break;}
  }
- return {rows:out,translated,failed,skipped:Math.max(0,unique.size-limit),attempted};
+ return {rows:out,translated,failed,skipped:Math.max(0,unique.size-attempted),attempted,stopped};
 }
 export function outputLinesWithTranslation(koreanLines,translations){
  return koreanLines.map((k,i)=>({source:k,translation:translations?.[i]?.text||"",translationSource:translations?.[i]?.source||""}));
