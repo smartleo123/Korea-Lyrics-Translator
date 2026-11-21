@@ -65,3 +65,17 @@ test('retries a Korean alternate for the same title and artist only',async()=>{
  assert.equal(result.track.id,12);assert.equal(result.usedAlternative,true);
  assert.match(result.lyrics,/사랑해/);
 });
+
+test('ignores records with invalid song IDs',async()=>{
+ const response=await searchTracks('korea',{fetcher:async()=>({ok:true,json:async()=>[
+  {id:null,trackName:'Bad',artistName:'A'},
+  {id:0,trackName:'Bad zero',artistName:'B'},
+  {id:42,trackName:'Good',artistName:'C'}
+ ]})});
+ assert.deepEqual(response.map(x=>x.id),[42]);
+ await assert.rejects(getLyricsForTrack(null),/無效/);
+});
+test('incidental Korean text in a mostly English song is not an original Korean lyric',()=>{
+ const input=['한국어 제목',...Array.from({length:15},(_,i)=>'I love you and miss you everyday number '+i)].join('\n');
+ assert.equal(inspectLyricLanguage(input).isKorean,false);
+});
