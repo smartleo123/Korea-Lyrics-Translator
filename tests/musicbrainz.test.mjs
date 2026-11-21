@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs,normalizeRecordingPage} from '../src/musicbrainz.js';
+import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs,normalizeRecordingPage,rankArtists,recommendedArtist} from '../src/musicbrainz.js';
 const artist={id:'6d4ff5b0-49ee-4c58-8f33-bf1f2ac71489',name:'IU',aliases:['아이유'],country:'KR'};
 test('resolve artist identities with ids and aliases, not just name matches',async()=>{
  const urls=[];
@@ -51,4 +51,26 @@ test('title search uses MusicBrainz recordings and filters matching artist names
  assert.equal(result.length,1);
  assert.equal(result[0].name,'밤편지');
  assert.equal(result[0].artist,'IU');
+});
+
+test('exact Korean idol group beats name-matched unrelated artists without showing a wall of candidates',()=>{
+ const candidates=[
+  {id:'gb',name:'Illit',country:'GB',disambiguation:'UK techno',type:'Person',score:94,aliases:[]},
+  {id:'kr',name:'ILLIT',country:'KR',disambiguation:'South Korean girl group',type:'Group',score:100,aliases:[]},
+  {id:'rap',name:'illit rap',country:'US',score:90,aliases:[]}
+ ];
+ assert.equal(rankArtists(candidates,'ILLIT')[0].id,'kr');
+ assert.equal(recommendedArtist(candidates,'ILLIT').id,'kr');
+ assert.equal(recommendedArtist(candidates,'a completely unknown name'),null);
+});
+test('503 is retried and a successful artist lookup is returned',async()=>{
+ let calls=0;
+ const fetcher=async()=>{
+  calls++;
+  if(calls<2)return {ok:false,status:503};
+  return {ok:true,json:async()=>({artists:[{id:artist.id,name:'IU',country:'KR'}]})};
+ };
+ const result=await searchMusicBrainzArtists('IU temporary 503 test',{fetcher});
+ assert.equal(result[0].name,'IU');
+ assert.equal(calls,2);
 });
