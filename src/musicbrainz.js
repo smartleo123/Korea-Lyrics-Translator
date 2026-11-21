@@ -68,6 +68,31 @@ export async function getMusicBrainzRecordingPage(artist,{offset=0,limit=100,fet
  const data=await throttledRequest("/recording?"+query,{fetcher,signal});
  return normalizeRecordingPage(data,artist,start);
 }
+// Search recordings by title using the same MusicBrainz catalog as artist
+// browsing. LRCLIB is used only after a song is chosen for fetching lyrics.
+export async function searchMusicBrainzSongs(title,{artistName="",fetcher=fetch,signal}={}){
+ const term=String(title||"").trim();
+ if(!term)return [];
+ const query=new URLSearchParams({query:term,fmt:"json",limit:"60"});
+ const data=await throttledRequest("/recording/?"+query,{fetcher,signal});
+ const artistSearch=String(artistName||"").normalize("NFKC").toLocaleLowerCase().replace(/[\\s._()\\-\\[\\]]+/g,"");
+ const entries=Array.isArray(data.recordings)?data.recordings:[];
+ const output=[],seen=new Set();
+ for(const entry of entries){
+  const credit=Array.isArray(entry["artist-credit"])?entry["artist-credit"].find(x=>x&&typeof x==="object"&&x.artist):null;
+  const name=credit?.artist?.name||credit?.name||"";
+  if(!name)continue;
+  const normalized=name.normalize("NFKC").toLocaleLowerCase().replace(/[\\s._()\\-\\[\\]]+/g,"");
+  if(artistSearch&&!normalized.includes(artistSearch))continue;
+  const artist={id:credit.artist.id||"",name,aliases:[]};
+  const recording=normalizeRecording(entry,artist);
+  if(!recording)continue;
+  const key=recording.name.normalize("NFKC").toLocaleLowerCase().trim()+"|"+normalized;
+  if(seen.has(key))continue;
+  seen.add(key);output.push(recording);
+ }
+ return output;
+}
 export function appendUniqueSongs(existing,incoming){
  const map=new Map();
  for(const t of [...existing,...incoming]){
