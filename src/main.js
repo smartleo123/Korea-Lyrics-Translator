@@ -3,7 +3,7 @@ import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
 
-import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs} from "./musicbrainz.js";
+import {searchMusicBrainzArtists,searchMusicBrainzSongs,getMusicBrainzRecordingPage,appendUniqueSongs,rankArtists,recommendedArtist} from "./musicbrainz.js";
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
 import {searchTracks,getKoreanLyricsWithFallback} from "./song-search.js";
@@ -310,20 +310,29 @@ function chooseMusicBrainzArtist(artist,controller){
  more.onclick=()=>loadMoreMusicBrainz(state);
  loadMoreMusicBrainz(state);
 }
-function showMusicBrainzArtists(artists,controller){
+function showMusicBrainzArtists(artists,controller,query){
  if(!artists.length||controller.signal.aborted)return;
  const root=directoryContainer();root.hidden=false;root.replaceChildren();
- root.append(directoryElement("h3","","MusicBrainz 歌手作品目錄（可分頁）"));
- root.append(directoryElement("p","directory-muted","請選擇正確歌手，才能載入他的歌曲；同名歌手可能是不同人。資料不保證完整或有歌詞。"));
+ root.append(directoryElement("h3","","歌手歌曲清單"));
  const chosen=directoryElement("div","directory-selected");
+ chosen.setAttribute("aria-live","polite");
+ root.append(chosen);
+ const ranked=rankArtists(artists,query);
+ const suggested=recommendedArtist(artists,query);
+ const alternative=directoryElement("details","artist-alternatives");
+ const summary=directoryElement("summary","",suggested?"不是這位歌手？切換歌手":"請選擇正確歌手");
+ alternative.append(summary);
  const choices=directoryElement("div","artist-choices");
- for(const artist of artists.slice(0,10)){
+ for(const artist of ranked.slice(0,5)){
   const btn=directoryElement("button","",artist.name+(artist.country?" · "+artist.country:"")+(artist.disambiguation?" · "+artist.disambiguation:""));
   btn.type="button";btn.dataset.id=artist.id;btn.setAttribute("aria-pressed","false");
-  btn.onclick=()=>chooseMusicBrainzArtist(artist,controller);
+  btn.onclick=()=>{chooseMusicBrainzArtist(artist,controller);alternative.open=false;};
   choices.append(btn);
  }
- root.append(choices,chosen,directoryElement("div","directory-content"));
+ alternative.append(choices);
+ if(!suggested){alternative.open=true;chosen.textContent="請確認歌手後顯示歌曲"; }
+ root.append(alternative,directoryElement("div","directory-content"));
+ if(suggested)chooseMusicBrainzArtist(suggested,controller);
 }
 function showTitleMatches(tracks,controller){
  const container=$("songResults");container.replaceChildren();
@@ -361,8 +370,8 @@ async function runSongSearch(artistMode){
     status.textContent="沒有找到歌手，請試試韓文或英文藝名；也可以自行貼上歌詞。";
     return;
    }
-   showMusicBrainzArtists(artists,controller);
-   status.textContent="請選擇正確歌手，再瀏覽並載入歌曲。";
+   showMusicBrainzArtists(artists,controller,artist);
+   status.textContent=recommendedArtist(artists,artist)?"已選擇最符合的歌手，正在載入歌曲。若不是你要的歌手，可點「切換歌手」。":"請選擇正確歌手後載入歌曲。";
   }else{
    const tracks=await searchMusicBrainzSongs(title,{artistName:artist,signal:controller.signal});
    if(controller.signal.aborted)return;
