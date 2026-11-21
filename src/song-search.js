@@ -28,7 +28,11 @@ export async function searchArtistTracks(artist,{fetcher=fetch,signal}={}){
  const response=await searchTracks(name,{fetcher,signal});
  const normalized=normalizeArtist(name);
  return response.filter(track=>normalizeArtist(track.artist).includes(normalized))
-   .sort((a,b)=>normalizeArtist(a.artist)===normalized? -1:normalizeArtist(b.artist)===normalized?1:a.name.localeCompare(b.name));
+   .sort((a,b)=>{
+     const ae=normalizeArtist(a.artist)===normalized,be=normalizeArtist(b.artist)===normalized;
+     if(ae!==be)return ae?-1:1;
+     return a.name.localeCompare(b.name);
+   });
 }
 function normalizeArtist(str){
  return String(str||"").normalize("NFKC").toLocaleLowerCase().replace(/[\s\u00b7\u2022._\-()\[\]]+/g,"").trim();
