@@ -155,7 +155,10 @@ $("editForm").addEventListener("submit",e=>{
   const word=$("editWord").value.trim(),type=$("editType").value,gloss=$("editGloss").value.trim();
   if(!/^[가-힣]+$/.test(word)){e.preventDefault();message("詞彙請輸入純韓文。");return;}
   custom[word]={type,gloss,source:"custom"};try{localStorage.setItem(KEY,JSON.stringify(custom));}catch{}
-  render();message("已儲存修正："+word);
+  // Local correction must not start dozens of MyMemory calls again.
+  lines=splitLyrics($("source").value).map(analyzeLine);
+  applyTranslations(lines,translations);
+  draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function exportMarkup(){
@@ -183,6 +186,7 @@ async function importTrack(track,versions,button,container,status){
   $("artist").value=selected.track?.artist||track.artist;
   $("source").value=selected.lyrics;
   $("providedChinese").value="";
+  invalidateOutput();
   officialLink();
   status.textContent=selected.usedAlternative?"原選版本不是韓文，已自動找到同首歌的韓文歌詞；請檢查內容並開始標註。":"已帶入 LRCLIB 韓文歌詞。請確認歌手、版本及內容，再按「自動標註歌詞」。";
   container.replaceChildren();
@@ -290,6 +294,19 @@ $("toggleChinese").onclick=async()=>{
   }
 };
 
+function invalidateOutput(){
+ if(translationController)translationController.abort();
+ renderSerial++;
+ lines=[];lineTranslations=[];
+ output.replaceChildren();status.textContent="";
+ setLoading(false);
+ $("download").disabled=true;$("copy").disabled=true;
+ message($("source").value.trim()?"歌詞內容已修改，請按「自動標註歌詞」以更新結果。":"");
+}
+$("source").addEventListener("input",invalidateOutput);
+$("providedChinese").addEventListener("input",()=>{
+ if(showChinese&&lines.length)message("中文翻譯內容已修改，重新標註後會優先使用新譯文。");
+});
 $("annotate").onclick=render;
 
 $("sample").onclick=()=>{$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
