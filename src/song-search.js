@@ -68,17 +68,52 @@ export async function searchTrackByMetadata(track,artist="",{fetcher=fetch,signa
  // happened to belong to other artists.
  return runSearch(name?{track_name:title,artist_name:name}:{track_name:title},{fetcher,signal});
 }
+// LRCLIB has lyric records, not an authoritative artist directory.
+// A small, explicit alias table handles common English/Hangul stage names
+// without adding another API or inferring unrelated artists.
+const ARTIST_NAME_GROUPS=[
+ ["BESTie","베스티"],["ILLIT","아일릿"],["BTS","방탄소년단"],["IU","아이유"],
+ ["TWICE","트와이스"],["BLACKPINK","블랙핑크"],["aespa","에스파"],
+ ["IVE","아이브"],["NewJeans","뉴진스"],["LE SSERAFIM","르세라핌"],
+ ["Red Velvet","레드벨벳"],["GFRIEND","여자친구"],["Girls' Generation","소녀시대","SNSD"],
+ ["Stray Kids","스트레이 키즈"],["SEVENTEEN","세븐틴"],["EXO","엑소"],
+ ["NMIXX","엔믹스"],["ITZY","있지"],["(G)I-DLE","여자아이들","i-dle"],
+ ["MAMAMOO","마마무"],["KISS OF LIFE","키스오브라이프"]
+];
+export function artistNameVariants(input){
+ const text=String(input||"").trim();
+ if(!text)return [];
+ const key=normalizedArtist(text);
+ const group=ARTIST_NAME_GROUPS.find(names=>names.some(n=>normalizedArtist(n)===key));
+ return [text,...(group||[]).filter(n=>normalizedArtist(n)!==key)]
+   .filter((value,index,list)=>list.findIndex(n=>normalizedArtist(n)===normalizedArtist(value))===index);
+}
+export function artistMatches(candidate,query){
+ const actual=normalizedArtist(candidate);
+ if(!actual)return false;
+ return artistNameVariants(query).some(name=>{
+  const alias=normalizedArtist(name);
+  return !!alias&&(actual===alias||actual.includes(alias));
+ });
+}
 export async function searchArtistTracks(artist,{fetcher=fetch,signal}={}){
- const name=String(artist||"").trim();
- if(!name)return [];
- const response=await searchTracks(name,{fetcher,signal});
- const normalized=normalizedArtist(name);
- return response.filter(track=>normalizedArtist(track.artist).includes(normalized))
-   .sort((a,b)=>{
-     const ae=normalizedArtist(a.artist)===normalized,be=normalizedArtist(b.artist)===normalized;
-     if(ae!==be)return ae?-1:1;
-     return a.name.localeCompare(b.name);
-   });
+ const variants=artistNameVariants(artist);
+ if(!variants.length)return [];
+ const found=new Map();
+ for(const name of variants.slice(0,2)){
+  if(signal?.aborted)throw abortError();
+  const result=await searchTracks(name,{fetcher,signal});
+  for(const track of result){
+   if(artistMatches(track.artist,artist)&&!found.has(track.id))found.set(track.id,track);
+  }
+  // Once a valid artist match exists, avoid additional requests and 429s.
+  if(found.size)break;
+ }
+ const normalized=normalizedArtist(artist);
+ return [...found.values()].sort((a,b)=>{
+  const aExact=normalizedArtist(a.artist)===normalized,bExact=normalizedArtist(b.artist)===normalized;
+  return aExact!==bExact?(aExact?-1:1):a.name.localeCompare(b.name);
+ });
 }
 function normalizeArtist(str){return normalizedArtist(str);}
 export function groupArtistTracks(tracks){
