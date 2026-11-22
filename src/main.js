@@ -5,7 +5,7 @@ import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCover
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
-import {searchTracks,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
+import {searchTracks,searchTrackByMetadata,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
@@ -247,7 +247,11 @@ async function runSongSearch(artistMode){
  status.textContent="正在搜尋歌曲…";
  $("findLyrics").disabled=true;$("findArtistSongs").disabled=true;
  try{
-  const found=artistMode?await searchArtistTracks(artist,{signal:controller.signal}):await searchTracks(title,{signal:controller.signal});
+  let found=artistMode?await searchArtistTracks(artist,{signal:controller.signal}):await searchTrackByMetadata(title,artist,{signal:controller.signal});
+  if(controller.signal.aborted)return;
+  // A title+artist search can be too restrictive for alternate stage names.
+  // Only then fall back to a broad title search, still checking the artist.
+  if(!found.length&&!artistMode&&artist)found=await searchTracks(title,{signal:controller.signal});
   if(controller.signal.aborted)return;
   const matches=artistMode||!artist?found:found.filter(t=>t.artist.normalize("NFKC").toLowerCase().includes(artist.normalize("NFKC").toLowerCase()));
   if(!matches.length){status.textContent="沒有找到相關歌曲，請換個歌名或藝名，或自行貼上歌詞。";return;}
