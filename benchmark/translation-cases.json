@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "description": "Small manually checked representative Korean–Traditional Chinese semantic checks. User-provided excerpts, not production translation patches; keyword indicators are not reference-grade sentence metrics.",
+  "description": "16 manually checked user-provided short source excerpts, references, and observed site outputs. Existing observed translations are data for a baseline comparison, NOT production song fixes or new model measurements.",
   "cases": [
     {
       "id": "pronoun-possessive",
@@ -12,7 +12,8 @@
       "forbidden": [
         "我生",
         "十九世紀"
-      ]
+      ],
+      "observed": "我過得很好，不用擔心我。"
     },
     {
       "id": "different-styles",
@@ -24,7 +25,8 @@
       ],
       "forbidden": [
         "螃蟹"
-      ]
+      ],
+      "observed": "我們不一樣，我們喜歡特別的東西。"
     },
     {
       "id": "direct-message",
@@ -37,7 +39,8 @@
       ],
       "forbidden": [
         "螃蟹"
-      ]
+      ],
+      "observed": "我讀了你傳來的私訊，但沒有回覆。"
     },
     {
       "id": "my-reply",
@@ -49,7 +52,8 @@
       ],
       "forbidden": [
         "我的我"
-      ]
+      ],
+      "observed": "這是我的答案。"
     },
     {
       "id": "style-freedom",
@@ -63,7 +67,8 @@
         "19世紀",
         "19 世紀",
         "十九世紀"
-      ]
+      ],
+      "observed": "我們獨一無二的 19 世紀風格媚俗"
     },
     {
       "id": "feed-appearance",
@@ -75,7 +80,8 @@
       ],
       "forbidden": [
         "離開"
-      ]
+      ],
+      "observed": "我每天都出現在你的演算法中。"
     },
     {
       "id": "smart-because",
@@ -86,7 +92,8 @@
       ],
       "forbidden": [
         "清晰"
-      ]
+      ],
+      "observed": "不會的，因為我很聰明。"
     },
     {
       "id": "korean-negation",
@@ -98,7 +105,8 @@
       ],
       "forbidden": [
         "吸引我不喜歡"
-      ]
+      ],
+      "observed": "我從來不會被我不感興趣的東西吸引。"
     },
     {
       "id": "dance",
@@ -110,7 +118,8 @@
       ],
       "forbidden": [
         "追逐"
-      ]
+      ],
+      "observed": "大家跟著我跳的舞一起跳吧。"
     },
     {
       "id": "idiom",
@@ -121,8 +130,9 @@
         "得分"
       ],
       "forbidden": [
-        "到"
-      ]
+        "掉落"
+      ],
+      "observed": "分數飆升到難以控制的地步"
     },
     {
       "id": "outfit",
@@ -134,7 +144,8 @@
       ],
       "forbidden": [
         "螃蟹"
-      ]
+      ],
+      "observed": "別把這些事情分數化。"
     },
     {
       "id": "living-way",
@@ -147,7 +158,8 @@
       ],
       "forbidden": [
         "吃了"
-      ]
+      ],
+      "observed": "我就是個隨遇而安的人，你還想要我怎麼樣？"
     },
     {
       "id": "cannot-follow",
@@ -159,7 +171,8 @@
       ],
       "forbidden": [
         "已經跟隨"
-      ]
+      ],
+      "observed": "沒有跟著去。"
     },
     {
       "id": "do-your-way",
@@ -172,7 +185,8 @@
       ],
       "forbidden": [
         "随便"
-      ]
+      ],
+      "observed": "我想隨心所欲。"
     },
     {
       "id": "opposite-attraction",
@@ -183,7 +197,8 @@
       ],
       "forbidden": [
         "物以類聚"
-      ]
+      ],
+      "observed": "為什麼會有「物以類聚」這句話？"
     },
     {
       "id": "negation",
@@ -195,7 +210,8 @@
       ],
       "forbidden": [
         "裡面"
-      ]
+      ],
+      "observed": "我還是不明白，真的不明白。"
     }
   ]
 }

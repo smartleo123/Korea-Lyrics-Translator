@@ -26,3 +26,13 @@ test("missing predictions are not fabricated as scores",()=>{
  assert.equal(result.attempted,0);
  assert.equal(result.keywordCoverage,null);
 });
+
+test("observed user-provided baseline has known meaning errors; a passing unit test does not hide them",()=>{
+ const observed=Object.fromEntries(dataset.cases.map(x=>[x.id,x.observed]));
+ const baseline=evaluateTranslation(dataset,observed);
+ assert.equal(baseline.attempted,dataset.cases.length);
+ assert.ok(baseline.forbiddenRate>0);
+ const failures=baseline.cases.filter(x=>x.forbiddenHits.length).map(x=>x.id);
+ assert.ok(failures.includes("style-freedom"));
+ assert.ok(failures.includes("opposite-attraction"));
+});

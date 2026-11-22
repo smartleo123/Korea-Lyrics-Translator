@@ -514,3 +514,29 @@ function assertNoDeletedRequests(requests){
   if(query.includes(' ')&&query!==full)throw new Error('Unexpected deleted-word translation: '+query);
  }
 }
+
+test('opt-in browser sentence translator overrides MyMemory without leaking a key',async({page})=>{
+ await page.addInitScript(()=>{
+  window.Translator={
+   availability:async()=> "available",
+   create:async()=>({translate:async()=> "我喜歡自由"})
+  };
+ });
+ let sentenceRequests=0;
+ await page.route('https://api.mymemory.translated.net/**',route=>{
+  const q=new URL(route.request().url()).searchParams.get('q');
+  if(q==='자유를 좋아해')sentenceRequests++;
+  return route.fulfill({json:{responseStatus:200,responseData:{translatedText:'舊的翻譯'}}});
+ });
+ await page.route('https://cdn.jsdelivr.net/gh/basickorean/**',route=>route.fulfill({json:{}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#enableBrowserTranslator').click();
+ await expect(page.locator('#notice')).toContainText('已啟用瀏覽器翻譯');
+ await page.locator('#source').fill('자유를 좋아해');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('#output')).toContainText('我喜歡自由');
+ if(sentenceRequests)throw new Error('The browser translator should handle the entire Korean line');
+});
