@@ -2,7 +2,6 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
-import {validateAnnotationLines} from "./annotation-validation.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -212,9 +211,7 @@ async function render(){
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
-  // Filter unsupported word-only meanings; sentence MT has no token alignment.
-  lines=validateAnnotationLines(lines,lineTranslations,{custom});
-  saveCache(localStorage,CACHE_KEY,translations);
+  // The Chinese sentence is translated first; keep lexical meanings even when\n  // expressed differently in a fluent sentence. MT does not provide alignment.\n  saveCache(localStorage,CACHE_KEY,translations);
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
   const missing=result?result.failed+Math.max(0,result.total-result.attempted):0;
@@ -244,7 +241,6 @@ $("editForm").addEventListener("submit",e=>{
   // Local correction must not start dozens of MyMemory calls again.
   lines=splitLyrics($("source").value).map(analyzeLine);
   applyTranslations(lines,translations);
-  lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
