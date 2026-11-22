@@ -45,7 +45,9 @@ function needsAutomaticKoreanTranslation(){
 }
 function getBrowserTranslator(userGesture=false){
  if(browserTranslator)return Promise.resolve(browserTranslator);
- if(browserTranslatorPending)return browserTranslatorPending;
+ // A user click must not inherit a pending background availability check:
+ // the latter cannot trigger Chrome's gesture-gated language-pack download.
+ if(browserTranslatorPending&&!userGesture)return browserTranslatorPending;
  const pending=prepareBrowserTranslator({
   allowDownload:userGesture,userGesture,
   onDownload:percent=>{
