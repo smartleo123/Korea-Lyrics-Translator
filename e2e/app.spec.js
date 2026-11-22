@@ -45,6 +45,29 @@ test('minimal lyrics placeholder, removed dictionary buttons, and downloadable P
 });
 
 import {test,expect} from '@playwright/test';
+
+test('contrastive translation distinguishes Hanja spelling from sentence meaning',async({page})=>{
+ const queries=[];
+ await page.route('https://api.mymemory.translated.net/**',route=>{
+  const q=new URL(route.request().url()).searchParams.get('q')||'';
+  queries.push(q);
+  const translation=q==='당장 가고'?'現在想走':q==='가고'?'想走':q==='당장'?'現在':'不確定';
+  return route.fulfill({json:{responseStatus:200,responseData:{translatedText:translation}}});
+ });
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('당장 가고');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ const result=await page.locator('#output').innerText();
+ expect(queries[0]).toBe('당장 가고');
+ expect(result).toContain('당장');
+ expect(result).toContain('現在');
+ expect(result).toContain('가고');
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('.line-translation')).toContainText('現在想走');
+});
+
 test('sentence translation happens before word annotation and toggle reuses it',async({page})=>{
  const requests=[];
  await page.route('https://api.mymemory.translated.net/**',route=>{
