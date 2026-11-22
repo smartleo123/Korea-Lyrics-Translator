@@ -7,6 +7,7 @@ import {enrichContextGlosses,restoreCachedContextGlosses,displayAnnotation,CONTE
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
+import {getLocalModel,alignInBrowser} from "./local-alignment.js";
 import {saveAnnotatedPdf} from "./pdf-export.js";
 import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVariants,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
@@ -33,6 +34,7 @@ let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(loca
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
+let localRunSerial=0;
 function refreshReader(){
  if(!readerDialog.open)return;
  $("readerTitle").textContent=$("title").value.trim()||"歌詞閱讀模式";
@@ -150,9 +152,11 @@ function draw(){
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
   $("openReader").disabled=!input.trim();
+  $("runLocalAI").disabled=!input.trim();
   refreshReader();
 }
 function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…"){
+ if(isLoading)resetLocalAI();
  loading.hidden=!isLoading;
  output.hidden=isLoading;
  status.hidden=isLoading;
@@ -164,6 +168,7 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("downloadPdf").disabled=isLoading;
  $("copy").disabled=isLoading;
  $("openReader").disabled=isLoading||!lines.length;
+ $("runLocalAI").disabled=isLoading||!lines.length;
  if(isLoading&&readerDialog.open)readerDialog.close();
 }
 async function render(){
@@ -370,7 +375,57 @@ $("toggleChinese").onclick=()=>{
  if(lines.length)draw();
 };
 
+function resetLocalAI(){
+ localRunSerial++;
+ $("localAIResults").replaceChildren();
+ $("localAIStatus").textContent="";
+ $("runLocalAI").disabled=true;
+}
+$("runLocalAI").addEventListener("click",async()=>{
+ if(!lines.length||!loading.hidden)return;
+ const serial=++localRunSerial;
+ const button=$("runLocalAI"),status=$("localAIStatus"),container=$("localAIResults");
+ button.disabled=true;container.replaceChildren();
+ try{
+  status.textContent="正在下載或載入本機 AI 模型（首次約 118 MB）…";
+  const model=await getLocalModel();
+  if(serial!==localRunSerial)return;
+  const inputLines=splitLyrics($("source").value);
+  const candidates=inputLines.map((text,i)=>({text,translation:lineTranslations[i]?.text||"",i}))
+   .filter(row=>/[가-힣]/.test(row.text)&&/[\u3400-\u9fff]/.test(row.translation)).slice(0,12);
+  if(!candidates.length){status.textContent="目前沒有可比對的韓中譯文。";return;}
+  let checked=0;
+  for(const row of candidates){
+   if(serial!==localRunSerial)return;
+   status.textContent="本機比對中："+(checked+1)+" / "+candidates.length;
+   const alignment=await alignInBrowser(row.text,row.translation,{model});
+   if(serial!==localRunSerial)return;
+   const section=document.createElement("div");section.className="local-ai-row";
+   const title=document.createElement("strong");title.textContent="第 "+(row.i+1)+" 行：可能的語意對應";
+   section.append(title);
+   if(alignment.links.length){
+    const tags=document.createElement("div");tags.className="local-ai-tags";
+    for(const link of alignment.links){
+     const tag=document.createElement("span");
+     tag.textContent=alignment.source[link.source]+" ↔ "+alignment.target[link.target]+"（相似度 "+link.similarity.toFixed(2)+"）";
+     tags.append(tag);
+    }
+    section.append(tags);
+   }else{
+    const noMatch=document.createElement("p");noMatch.className="hint";
+    noMatch.textContent="沒有足夠可靠的詞組對應，不強行配對。";
+    section.append(noMatch);
+   }
+   container.append(section);checked++;
+  }
+  status.textContent="已檢查 "+checked+" 行；相似度不等於詞義或詞源的正確性。";
+ }catch(error){
+  if(serial===localRunSerial)status.textContent="無法啟動本機 AI。可能是網路、記憶體或模型載入限制；一般標註不受影響。";
+  console.warn("Local model unavailable",error);
+ }finally{if(serial===localRunSerial)button.disabled=false;}
+});
 function invalidateOutput(){
+ resetLocalAI();
  syncOutputTitle();
  if(translationController)translationController.abort();
  renderSerial++;
