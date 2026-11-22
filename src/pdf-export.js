@@ -1,3 +1,4 @@
+import {displayAnnotation} from "./contextual-meaning.js";
 // A real PDF download (rather than a print dialog). html2pdf renders the
 // existing annotations in the browser; no lyrics are sent to a PDF server.
 function pdfName(title){
@@ -21,10 +22,10 @@ export function buildPdfContent(document,lines,{title="韓語歌詞詞源對照"
    const word=document.createElement("span");
    word.style.color=part.type==="hanja"?"#ff667e":part.type==="loan"?"#c69bff":"#f7f9ff";
    word.textContent=part.text;
-   if(part.gloss){
+   if(displayAnnotation(part)){
     const gloss=document.createElement("small");
     gloss.style.cssText="font-size:.76em;opacity:.88;";
-    gloss.textContent="("+String(part.gloss).replace(/^≈/,"")+")";
+    gloss.textContent="("+displayAnnotation(part).replace(/^≈/,"")+")";
     word.append(gloss);
    }
    line.append(word);
