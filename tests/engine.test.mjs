@@ -47,3 +47,14 @@ test('inflected verbs never inherit accidental Hanja homographs',()=>{
  const parts=annotateSpan({surface:'지샌',morphs:[{text:'지새',pos:'VV'},{text:'ㄴ',pos:'ETM'}]},dict);
  assert.equal(parts.some(p=>p.type==='hanja'),false);
 });
+
+test('Garu predicate evidence outranks a seeded Hanja homograph',()=>{
+ const override={지샌:{type:'hanja',gloss:'智善',source:'seed'}};
+ const parts=annotateSpan({surface:'지샌',morphs:[{text:'지새',pos:'VV'},{text:'ㄴ',pos:'ETM'}]},hanja,override);
+ assert.equal(parts[0].type,'native');
+});
+test('explicit user corrections still take priority',()=>{
+ const override={지샌:{type:'hanja',gloss:'自訂詞源',source:'custom'}};
+ const parts=annotateSpan({surface:'지샌',morphs:[{text:'지새',pos:'VV'}]},hanja,override);
+ assert.equal(parts[0].gloss,'自訂詞源');
+});

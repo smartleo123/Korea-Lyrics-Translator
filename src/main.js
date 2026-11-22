@@ -1,5 +1,6 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
+import {applyGaruLemmaGlosses} from "./lemma-lookup.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {validateAnnotationLines} from "./annotation-validation.js";
@@ -92,7 +93,7 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
-function enhanceLine(parts){
+function enhanceLine(parts,tokens=[]){
  // Recover full eojeols from Garu rather than translating detached suffixes.
  // Do not apply song-specific word patches or Chinese-sentence-to-Hanja rules.
  parts=completeUnannotatedKorean(parts);
@@ -102,13 +103,13 @@ function enhanceLine(parts){
    part.translationSource="lexicon";
   }
  }
- return parts;
+ return applyGaruLemmaGlosses(parts,tokens,COMMON_GLOSSARY);
 }
 function analyzeLine(input){
  if(!input)return [];
  try{
   const tokens=analyzer.analyze(input).tokens||[];
-  return enhanceLine(annotateLine(input,tokens,hanja,overrides()));
+  return enhanceLine(annotateLine(input,tokens,hanja,overrides()),tokens);
  }catch(err){
   console.warn("Garu analysis failed",err);
   return enhanceLine(annotateLine(input,[],hanja,overrides()));
@@ -130,7 +131,7 @@ function draw(){
       element.append(document.createTextNode(w.text));
       if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
-        // Question mark distinguishes context-unverified vocabulary MT.
+        // Only display meanings that pass the current evidence filters.
         note.textContent="("+displayAnnotation(w).replace(/^≈/,"")+")";
         element.append(note);
       }
@@ -202,11 +203,11 @@ async function render(){
   loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
   lines=koreanLines.map(analyzeLine);
   applyTranslations(lines,translations,{contexts:koreanLines});
-  // Contrastive alignment: compare each sentence with the same sentence
-  // minus one analyzed token. Use only a stable Chinese translation delta.
+  // Optional, conservative contrastive hints only for missing glosses.
+  // Do not overwrite any lexical or user-provided meaning.
   loadingDetail.textContent="正在比對整句語境與韓文字詞…";
   await enrichContextGlosses(lines,lineTranslations,{
-    cache:contextCache,signal:controller.signal,max:12,
+    cache:contextCache,signal:controller.signal,max:4,
     onProgress:({attempted,total})=>{
       if(!controller.signal.aborted&&serial===renderSerial)
         loadingDetail.textContent="語境對位中 "+attempted+" / "+total+"…";

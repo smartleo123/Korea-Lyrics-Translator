@@ -6,7 +6,7 @@ import {translateOne} from "./translation.js";
 
 const CJK=/[\u3400-\u9fff]/;
 const HANGUL=/^[가-힣]+$/;
-export const CONTEXT_CACHE_KEY="korean-lyrics-contrastive-v1";
+export const CONTEXT_CACHE_KEY="korean-lyrics-contrastive-v2";
 function commonPrefix(a,b){
  let i=0;const x=[...a],y=[...b];
  while(i<x.length&&i<y.length&&x[i]===y[i])i++;
@@ -25,9 +25,10 @@ export function deriveContextGloss(fullTranslation,omittedTranslation){
  const fromLess=b.slice(prefix,b.length-suffix).join("").trim();
  const retained=prefix+suffix;
  // Translation of the remaining sentence must be mostly stable.
- if(retained<Math.max(2,Math.ceil(b.length*.58)))return null;
+ if(retained<Math.max(4,Math.ceil(b.length*.8)))return null;
  if(!CJK.test(delta)||[...delta].length>22)return null;
- if([...fromLess].length>Math.max(4,[...delta].length+2))return null;
+ if(fromLess.length>0)return null;
+ if([...delta].length<1||[...delta].length>10)return null;
  return {gloss:delta,confidence:retained/Math.max(a.length,b.length)};
 }
 export function withoutPart(parts,index){
@@ -43,16 +44,15 @@ export function selectContextCandidates(lines,rows,{max=12}={}){
   const source=parts.map(p=>p.text).join("");
   for(let j=0;j<parts.length;j++){
    const p=parts[j];
-   if(!HANGUL.test(p.text)||p.source==="custom"||p.source==="grammar"||p.type==="loan")continue;
+   if(!HANGUL.test(p.text)||p.gloss||p.contextGloss||p.source==="custom"||p.source==="grammar"||p.type==="loan"||p.type==="hanja"||p.type==="ambiguous")continue;
    // Single-syllable particles are excluded by their morphology source;
    // independent pronouns may be a single Hangul syllable.
    if(p.text.length<1)continue;
    // Only try a representative instance of each Korean surface in context.
    const reduced=withoutPart(parts,j);
    if(!reduced||reduced===source||!/[가-힣]/.test(reduced))continue;
-   // Phrases with no lexical gloss or machine-only gloss are highest priority,
-   // but even an attested Hanja spelling can have a different contextual sense.
-   const priority=(p.translationSource==="MyMemory"||/[／/]/.test(p.gloss||""))?0:!p.gloss?1:p.type==="hanja"?2:3;
+   // Only unresolved vocabulary is eligible for a costly, error-prone probe.
+   const priority=0;
    const key=source+"|"+j;
    if(seen.has(key))continue;seen.add(key);
    candidates.push({i,j,source,reduced,full:whole,priority});
@@ -72,15 +72,11 @@ export function displayAnnotation(part){
  return meaning&&meaning!==origin?[origin,meaning].filter(Boolean).join(" · "):origin;
 }
 function applyResult(part,result){
- if(!readableGloss(result?.gloss)||!(result.confidence>=.35))return false;
- if(part.type==="hanja"){
-  part.contextGloss=result.gloss;
-  part.contextSource="sentence-contrast";
- }else{
-  part.gloss=result.gloss;
-  part.translationSource="sentence-contrast";
-  part.unverifiedGloss=false;
- }
+ if(part.gloss||part.contextGloss||part.source==="custom"||part.type==="hanja"||part.type==="ambiguous")return false;
+ if(!readableGloss(result?.gloss)||!(result.confidence>=.8))return false;
+ part.gloss=result.gloss;
+ part.translationSource="sentence-contrast";
+ part.unverifiedGloss=false;
  return true;
 }
 export function restoreCachedContextGlosses(lines,rows,cache){

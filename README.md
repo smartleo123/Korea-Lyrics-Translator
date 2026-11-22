@@ -61,3 +61,7 @@ GitHub Actions 每次推送 `main` 會產生辭典、建置網站、執行 Node 
 - Garu 原始碼使用 Apache-2.0；其辭典模型依原專案 NOTICE／附屬授權處理，請詳閱 [Garu NOTICE](https://github.com/ongjin/garu/blob/main/NOTICE)。
 - HanjaHanja 衍生自韓國國立國語院辭典資料，詞表與產出的 `hanja-dict.json` 依 **CC BY-SA 2.0 KR** 署名／相同方式分享要求使用。來源：[HanjaHanja 專案](https://github.com/ongocompany/hanjahanja-dict)。
 - 本專案不內建歌詞全文，使用者應遵守歌詞供應者條款及相關著作權。
+
+## Garu 詞幹查詢與保守語境翻譯
+
+Garu 詞幹只在詞性與詞幹資訊完整、且詞典確實收錄詞條時，才以基本形（動詞／形容詞 + 다；名詞保留原詞根）查找中文詞義。該查詢不改動歌詞原字形、漢字詞源或人工修正。缺乏完整形態資訊時不猜測活用規則。刪詞重翻僅在完整句子譯文差異極小且原詞沒有任何詞義時才用來補缺；不會覆蓋人工、詞典或其他已知註解。每次最多執行 4 筆此類比對，並使用新版快取隔離舊的不可靠結果。
