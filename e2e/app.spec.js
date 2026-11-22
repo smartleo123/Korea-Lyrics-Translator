@@ -1,3 +1,21 @@
+test('White Lie lyric inflections keep contextual meanings rather than unrelated Hanja glosses',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{responseStatus:200,responseData:{translatedText:'參考翻譯'}}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#title').fill('White Lie');
+ await page.locator('#source').fill(['내 맘이 아파와','진짜 네가 보일 때마다','방금 한 말은','하얀 거짓말'].join('\\n'));
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ const annotation=await page.locator('#output').innerText();
+ expect(annotation).toContain('心（主格）');
+ expect(annotation).toContain('痛起來／感到心痛');
+ expect(annotation).toContain('話語（主題）');
+ expect(annotation).toContain('說過的');
+ expect(annotation).toContain('潔白的');
+ expect(annotation).not.toContain('媽媽');
+ expect(annotation).not.toContain('(馬)');
+ expect(annotation).not.toContain('與阿帕');
+});
 test('minimal lyrics placeholder, removed dictionary buttons, and downloadable PDF',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>
   route.fulfill({json:{responseStatus:200,responseData:{translatedText:'愛你'}}}));
