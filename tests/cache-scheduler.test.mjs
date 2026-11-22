@@ -28,3 +28,31 @@ test('translation scheduler serializes jobs and respects aborted pending work',a
  assert.deepEqual(await Promise.all([first,second,third]),[1,2,null]);
  assert.deepEqual(order,[1,2]);
 });
+
+test('saving the same cache twice preserves original entry timestamps',()=>{
+ const data=new Map();
+ const storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const old=Date.now()-2*86400000;
+ storage.setItem('cache',JSON.stringify({version:2,entries:[{key:'old',value:'舊',time:old}]}));
+ const entries=loadCache(storage,'cache',{ttlDays:3});
+ entries.new='新';
+ saveCache(storage,'cache',entries);
+ const saved=JSON.parse(data.get('cache')).entries;
+ assert.equal(saved.find(x=>x.key==='old').time,old);
+ assert.ok(saved.find(x=>x.key==='new').time>=old);
+ assert.equal(loadCache(storage,'cache',{ttlDays:1}).old,undefined);
+});
+test('aborted queued scheduler job is rejected promptly before active work completes',async()=>{
+ const scheduler=createRequestScheduler({intervalMs:0});
+ let release;
+ const first=scheduler.run(()=>new Promise(resolve=>{release=resolve;}));
+ // Wait until the first job starts.
+ await new Promise(resolve=>setTimeout(resolve,5));
+ const controller=new AbortController();
+ const queued=scheduler.run(()=>{throw Error('must never run');},{signal:controller.signal});
+ controller.abort();
+ await assert.rejects(queued,/取消/);
+ assert.equal(scheduler.pending,0);
+ release('finished');
+ assert.equal(await first,'finished');
+});
