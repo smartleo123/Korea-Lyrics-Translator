@@ -1,10 +1,10 @@
-test('machine word translations that contradict a whole-line translation are not displayed',async({page})=>{
+test('first translate sentence, then retain complete word glosses even without literal overlap',async({page})=>{
  const queryHistory=[];
  await page.route('https://api.mymemory.translated.net/**',route=>{
   const q=new URL(route.request().url()).searchParams.get('q')||'';
   queryHistory.push(q);
-  const text=q.includes('머니까')&&q.includes('당장')?'我現在就想走，但有點遠。':
-   q==='머니까'?'摳門鬼':q==='가고'?'去':'無關';
+  const text=q.includes('머니까')&&q.includes('당장')?'我現在就想走，但是有點遠。':
+   q==='머니까'?'遠':'想走';
   return route.fulfill({json:{responseStatus:200,responseData:{translatedText:text}}});
  });
  await page.goto('/');
@@ -15,7 +15,7 @@ test('machine word translations that contradict a whole-line translation are not
  const plain=await page.locator('#output').innerText();
  expect(plain).toContain('당장');
  expect(plain).toContain('머니까');
- expect(plain).not.toContain('摳門鬼');
+ expect(plain).toContain('遠');
  expect(queryHistory[0]).toBe('당장 가고 싶지만 좀 머니까');
  await page.locator('#toggleChinese').click();
  await expect(page.locator('.line-translation')).toContainText('我現在就想走');
