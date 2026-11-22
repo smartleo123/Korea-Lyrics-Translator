@@ -1,49 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateWordAnnotations,validateAnnotationLines} from '../src/annotation-validation.js';
+import {lexicalContextEvidence,validateWordAnnotations,validateAnnotationLines} from '../src/annotation-validation.js';
 const token=(text,gloss,type='native',extra={})=>({text,gloss,type,...extra});
-test('filters unrelated transliteration and word-only machine guesses without hardcoded Korean mappings',()=>{
+test('different expressions in sentence translation never erase lexical glosses',()=>{
  const parts=[
-  token('머니까','摳門鬼','native',{translationSource:'MyMemory'}),
+  token('머니까','很遠','native',{translationSource:'MyMemory'}),
   token('가고','去','native',{translationSource:'MyMemory'}),
   token('혼자','獨自','native',{translationSource:'MyMemory'})
  ];
- const checked=validateWordAnnotations(parts,'我現在就想走，但有點遠。我一個人哭。');
- assert.equal(checked[0].gloss,'');
- assert.equal(checked[1].gloss,'');
- assert.equal(checked[2].gloss,'');
- assert.equal(parts[0].gloss,'摳門鬼');
+ const out=validateWordAnnotations(parts,'我現在就想走，但有點遠。我一個人哭。');
+ assert.equal(out.length,3);
+ assert.deepEqual(out.map(x=>x.gloss),parts.map(x=>x.gloss));
+ assert.equal(out[0].contextEvidence,'not-literal');
+ assert.equal(out[1].contextEvidence,'not-literal');
 });
-test('keeps word-only machine meanings when Chinese sentence provides independent evidence',()=>{
- const parts=[token('가고','想走','native',{translationSource:'MyMemory'})];
- assert.equal(validateWordAnnotations(parts,'我現在就想走')[0].gloss,'想走');
+test('lexical context evidence is supporting metadata, not bilingual alignment',()=>{
+ assert.equal(lexicalContextEvidence('想走','我現在就想走'),'literal');
+ assert.equal(lexicalContextEvidence('去','我現在就想走'),'not-literal');
+ assert.equal(lexicalContextEvidence('','我現在就想走'),'unavailable');
 });
-test('ambiguous slash annotations select only supported option or remain unannotated',()=>{
- const parts=[token('언젠가','裡面／不是')];
- assert.equal(validateWordAnnotations(parts,'這不是你想的')[0].gloss,'不是');
- assert.equal(validateWordAnnotations(parts,'他走過來了')[0].gloss,'');
-});
-test('preserves user corrections and verified Hanja spellings even when Chinese differs',()=>{
+test('dictionary Hanja, custom edits and lexicon meanings are preserved',()=>{
  const parts=[
-  token('단어','我的註解','native',{source:'custom'}),
+  token('단어','我的註解','native',{source:'custom',translationSource:'MyMemory'}),
   token('당장','當場','hanja',{source:'dictionary'}),
-  token('반복','反覆','hanja',{source:'dictionary'})
+  token('마음','內心','native',{translationSource:'lexicon'})
  ];
- const actual=validateWordAnnotations(parts,'我現在想去');
- assert.equal(actual[0].gloss,'我的註解');
- assert.equal(actual[1].gloss,'當場');
- assert.equal(actual[2].gloss,'反覆');
+ const out=validateWordAnnotations(parts,'現在就想走');
+ assert.deepEqual(out,parts);
 });
-test('line-by-line validation prevents borrowing context from neighboring lyrics',()=>{
- const lines=[
-  [token('단어','摳門鬼','native',{translationSource:'MyMemory'})],
-  [token('단어','心痛','native',{translationSource:'MyMemory'})]
- ];
- const checked=validateAnnotationLines(lines,[{text:'我很心痛'},{text:'沒有相關內容'}]);
- assert.equal(checked[0][0].gloss,'');
- assert.equal(checked[1][0].gloss,'');
+test('sentence evidence is computed only from corresponding translated line',()=>{
+ const source=[[token('가고','走','native',{translationSource:'MyMemory'})],
+               [token('오고','來','native',{translationSource:'MyMemory'})]];
+ const out=validateAnnotationLines(source,[{text:'我們走了'},{text:'你來了'}]);
+ assert.equal(out[0][0].contextEvidence,'literal');
+ assert.equal(out[1][0].contextEvidence,'literal');
 });
-test('grammar fragments do not become independently translated words',()=>{
- const parts=[token('은','銀','native',{source:'grammar'})];
- assert.equal(validateWordAnnotations(parts,'他說的話')[0].gloss,'');
+test('grammar fragments never receive context evidence',()=>{
+ const part=token('은','銀','native',{source:'grammar'});
+ assert.deepEqual(validateWordAnnotations([part],'說話'),[part]);
 });
