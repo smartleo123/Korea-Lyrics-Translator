@@ -19,9 +19,13 @@ export function lexicalContextEvidence(gloss,sentence){
 export function validateWordAnnotations(parts,sentence,{custom={}}={}){
  return parts.map(part=>{
   if(!part.gloss||custom[part.text]||part.source==="custom")return part;
-  if(part.type==="hanja"||part.type==="loan")return part;
+  if(part.type==="loan")return part;
+  const evidence=lexicalContextEvidence(part.gloss,sentence);
+  if(part.type==="hanja")return {...part,contextEvidence:evidence};
   if(part.translationSource!=="MyMemory")return part;
-  return {...part,contextEvidence:lexicalContextEvidence(part.gloss,sentence)};
+  // The Chinese meaning of a standalone word is not aligned to this sentence.
+  // Keep it available for manual review but do not present it as verified.
+  return {...part,contextEvidence:evidence,unverifiedGloss:evidence!=="literal"};
  });
 }
 export function validateAnnotationLines(lines,translations,options={}){
