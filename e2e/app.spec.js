@@ -41,6 +41,49 @@ test('minimal lyrics placeholder, removed dictionary buttons, and downloadable P
 });
 
 import {test,expect} from '@playwright/test';
+test('sentence translation happens before word annotation and toggle reuses it',async({page})=>{
+ const requests=[];
+ await page.route('https://api.mymemory.translated.net/**',route=>{
+  const query=new URL(route.request().url()).searchParams.get('q')||'';
+  requests.push(query);
+  const reply=query.includes('맘이')?'我的心很痛':'心';
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:reply}}});
+ });
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('내 맘이 아파와');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ expect(requests[0]).toBe('내 맘이 아파와');
+ await expect(page.locator('#output')).toContainText('心（主格）');
+ await expect(page.locator('#output .line-translation')).toHaveCount(0);
+ const before=requests.length;
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('#output .line-translation')).toHaveCount(1);
+ expect(requests.length).toBe(before);
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('#output .line-translation')).toHaveCount(0);
+ expect(requests.length).toBe(before);
+});
+test('a provided Chinese sentence guides annotation before word-only translation',async({page})=>{
+ const requests=[];
+ await page.route('https://api.mymemory.translated.net/**',route=>{
+  const q=new URL(route.request().url()).searchParams.get('q')||'';
+  requests.push(q);
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:'我的心'}}});
+ });
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('내 맘이 아파와');
+ await page.locator('#providedChinese').fill('我的心感到疼痛');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ expect(requests).not.toContain('내 맘이 아파와');
+ await expect(page.locator('#output')).toContainText('心（主格）');
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('.line-translation')).toContainText('我的心感到疼痛');
+});
+
 test('fullscreen reading mode enlarges annotated lyrics, remembers font size and exits',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
   responseStatus:200,responseData:{translatedText:'我愛你'}
