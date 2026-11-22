@@ -126,11 +126,13 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
+      if(w.unverifiedGloss)element.classList.add("uncertain-gloss");
       element.tabIndex=0;element.title=w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
-        note.textContent="("+displayAnnotation(w).replace(/^≈/,"")+")";
+        // Question mark distinguishes context-unverified vocabulary MT.
+        note.textContent="("+(w.unverifiedGloss?"? ":"")+displayAnnotation(w).replace(/^≈/,"")+")";
         element.append(note);
       }
       element.addEventListener("click",()=>edit(i,j));
@@ -143,7 +145,8 @@ function draw(){
     output.append(entry);
   }
   const coverage=countKoreanCoverage(lines);
-  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
+  const uncertain=lines.flat().filter(p=>p.unverifiedGloss).length;
+  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan+(uncertain?"｜待核對詞義 "+uncertain+"（?）":"");
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
   $("openReader").disabled=!input.trim();
