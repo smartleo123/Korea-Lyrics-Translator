@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {translationCandidates,extractTranslation,translateOne,translateMissing,applyTranslations} from "../src/translation.js";
+import {translationCandidates,translationKey,extractTranslation,translateOne,translateMissing,applyTranslations} from "../src/translation.js";
 test("translates unique Korean items without touching Hanja and grammar",()=>{
  const lines=[[{text:"사랑",type:"native",gloss:"愛"},{text:"떠나",type:"native",gloss:""},{text:"용서",type:"hanja",gloss:"容恕"},{text:"떠나",type:"native",gloss:""}]];
  assert.deepEqual(translationCandidates(lines,{}).words,["떠나"]);
@@ -58,4 +58,26 @@ test('full sentence response is not truncated to the word-gloss limit',async()=>
  const fetcher=async()=>({ok:true,json:async()=>({responseStatus:200,responseData:{translatedText:long}})});
  assert.equal((await translateOne('내 마음을 기억해',{fetcher,maxChars:500})).length,long.length);
  assert.equal((await translateOne('기억해',{fetcher})).length,100);
+});
+
+test('word-only translations cannot leak between different lyric sentences',async()=>{
+ const sentenceA='여기는 내가 바라는 곳';
+ const sentenceB='그 사람이 무언가를 바라';
+ const one=[[{text:'바라',type:'native',gloss:''}]];
+ const two=[[{text:'바라',type:'native',gloss:''}]];
+ const cache={};
+ let calls=0;
+ const fetcher=async()=>{
+  calls++;
+  return {ok:true,json:async()=>({responseStatus:200,responseData:{translatedText:'希望'}})};
+ };
+ await translateMissing(one,{contexts:[sentenceA],cache,fetcher});
+ assert.equal(cache[translationKey('바라',sentenceA)],'希望');
+ assert.equal(cache[translationKey('바라',sentenceB)],undefined);
+ assert.equal(translationCandidates(two,cache,10,{contexts:[sentenceB]}).total,1);
+ applyTranslations(two,cache,{contexts:[sentenceB]});
+ assert.equal(two[0][0].gloss,'');
+ applyTranslations(one,cache,{contexts:[sentenceA]});
+ assert.equal(one[0][0].gloss,'希望');
+ assert.equal(calls,1);
 });
