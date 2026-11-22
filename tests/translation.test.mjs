@@ -52,3 +52,10 @@ test('prioritizes repeated untranslated words while respecting the request cap',
  assert.equal(options.words[0],'꾸준한');
  assert.equal(options.words.length,2);
 });
+
+test('full sentence response is not truncated to the word-gloss limit',async()=>{
+ const long='我的心在夜晚想起你，所以'+ '仍然很想念'.repeat(23);
+ const fetcher=async()=>({ok:true,json:async()=>({responseStatus:200,responseData:{translatedText:long}})});
+ assert.equal((await translateOne('내 마음을 기억해',{fetcher,maxChars:500})).length,long.length);
+ assert.equal((await translateOne('기억해',{fetcher})).length,100);
+});
