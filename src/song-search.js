@@ -37,7 +37,7 @@ async function requestJson(url,{fetcher=fetch,signal,timeoutMs=12000}={}){
   signal?.removeEventListener("abort",cancel);
  }
 }
-function normalizedArtist(x){return safeStr(x).normalize("NFKC").toLocaleLowerCase().replace(/[\\s\\u00b7\\u2022._\\-()\\[\\]]+/g,"").trim();}
+function normalizedArtist(x){return safeStr(x).normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");}
 async function runSearch(params,{fetcher=fetch,signal}={}){
  const url=BASE+"/search?"+new URLSearchParams(params);
  const key=url;
@@ -158,7 +158,7 @@ export async function getKoreanLyricsWithFallback(track,versions=[],{fetcher=fet
     const found=await getLyricsForTrack(candidate.id,{fetcher,signal});
     return {...found,usedAlternative:candidate.id!==track.id};
    }catch(err){
-    if(signal?.aborted)throw err;
+    if(signal?.aborted||/429/.test(err.message||""))throw err;
     lastError=err;
    }
   }
@@ -167,7 +167,7 @@ export async function getKoreanLyricsWithFallback(track,versions=[],{fetcher=fet
  const first=await tryCandidates();
  if(first)return first;
  // Retry a focused lookup when the original broad search gave only English.
- const more=await searcher([track.name,track.artist].filter(Boolean).join(" "),{fetcher,signal}).catch(()=>[]);
+ const more=await searcher([track.name,track.artist].filter(Boolean).join(" "),{fetcher,signal}).catch(err=>{if(signal?.aborted||/429/.test(err.message||""))throw err;return [];});
  const previousCount=candidates.length;
  more.forEach(add);
  if(candidates.length>previousCount){
@@ -178,7 +178,7 @@ export async function getKoreanLyricsWithFallback(track,versions=[],{fetcher=fet
    try{
     const found=await getLyricsForTrack(candidate.id,{fetcher,signal});
     return {...found,usedAlternative:true};
-   }catch(err){if(signal?.aborted)throw err;lastError=err;}
+   }catch(err){if(signal?.aborted||/429/.test(err.message||""))throw err;lastError=err;}
   }
  }
  throw new Error("找不到這首歌的韓文原文版本；LRCLIB 可能只有英文翻譯或羅馬拼音。請改選其他版本，或自行貼上韓文歌詞。");
