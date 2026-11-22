@@ -79,6 +79,27 @@ test('song and artist inputs use precise LRCLIB metadata search',async({page})=>
  expect(params.has('q')).toBe(false);
 });
 
+test('editing lyrics while a selected song loads never overwrites manual work',async({page})=>{
+ await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[
+  {id:78,trackName:'테스트',artistName:'가수',albumName:'Single'}
+ ]}));
+ await page.route('https://lrclib.net/api/get/78',async route=>{
+  await new Promise(resolve=>setTimeout(resolve,350));
+  try{await route.fulfill({json:{
+   id:78,trackName:'테스트',artistName:'가수',
+   plainLyrics:'사랑해 너를\\n많이 보고 싶어'
+  }});}catch{}
+ });
+ await page.goto('/');
+ await page.locator('#title').fill('테스트');
+ await page.locator('#findLyrics').click();
+ await page.getByRole('button',{name:'帶入歌詞'}).click();
+ await page.locator('#source').fill('내가 직접 입력한 가사');
+ await expect(page.locator('#source')).toHaveValue('내가 직접 입력한 가사');
+ await page.waitForTimeout(600);
+ await expect(page.locator('#source')).toHaveValue('내가 직접 입력한 가사');
+});
+
 test('Korean lyric forms from screenshot get meanings and preserve the source lines',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
   responseStatus:200,responseData:{translatedText:'詞義'}
