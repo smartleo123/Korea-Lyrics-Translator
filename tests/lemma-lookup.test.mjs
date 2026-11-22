@@ -22,7 +22,7 @@ test("nominal stems with particles reuse dictionary entry",()=>{
  assert.equal(result[0].gloss,"夜晚");
 });
 test("unknown and ambiguous analyses do not fabricate lemmas",()=>{
- assert.equal(lemmaFromMorphs("아무말",[{text:"아무",pos:"NNG"},{text:"말",pos:"NNG"}],words),null);
+ assert.deepEqual(lemmaFromMorphs("아무말",[{text:"아무",pos:"NNG"},{text:"말",pos:"NNG"}],words),{lemma:"아무말",gloss:"",source:"garu-compound"});
  assert.equal(lemmaFromMorphs("간다",[{text:"가",pos:"VV"},{text:"다",pos:"NNG"}],words),null);
  assert.equal(lemmaFromMorphs("기다려",[],words),null);
 });

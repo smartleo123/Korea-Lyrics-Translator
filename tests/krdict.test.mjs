@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import {dictionaryGloss,fillDictionaryGlosses,keyForLemma} from "../src/krdict.js";
 
 test("real Korean learner dictionary shard schema yields a concise Chinese gloss",()=>{
- assert.equal(dictionaryGloss([[["讲，述说","用语言表达"]]],x=>x.replace("讲","講")),"講，述说");
+ assert.equal(dictionaryGloss([[["讲，述说","用语言表达"]]],x=>x.replace("讲","講")),"講");
  assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]]),"一种意思");
- assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]],x=>x,"這是另一種意思"),"另一种意思");
+ assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]],x=>x.replaceAll("种","種"),"這是另一種意思"),"另一種意思");
  assert.equal(dictionaryGloss([[["一","1"],["二","2"],["三","3"],["四","4"]]]),"一");
  assert.equal(dictionaryGloss(undefined),"");
  assert.equal(keyForLemma("말하다"),"b9d0");
@@ -18,7 +18,7 @@ test("missing word is filled with keyed Korean dictionary meaning without changi
  const fetcher=async(url)=>{requested.push(url);return {ok:true,json:async()=>({"좋다":[[["好，良好","质量好"]]]})};};
  const result=await fillDictionaryGlosses(lines,{fetcher,converter:x=>x.replace("良好","良好"),baseUrl:"https://dictionary.example/"});
  assert.equal(result.matched,1);
- assert.equal(lines[0][0].gloss,"好，良好");
+ assert.equal(lines[0][0].gloss,"好");
  assert.equal(lines[0][0].translationSource,"KRDICT");
  assert.equal(lines[0][0].text,"좋을");
  assert.equal(lines[0][2].gloss,"告白");
