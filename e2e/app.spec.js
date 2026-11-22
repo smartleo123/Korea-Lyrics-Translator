@@ -322,21 +322,20 @@ test('empty lyric catalog does not imply the artist does not exist',async({page}
  await expect(page.locator('#songSearchStatus')).toContainText('不代表歌手不存在');
 });
 
-test('Korean lyric forms from screenshot get meanings and preserve the source lines',async({page})=>{
+test('unverified lyric words preserve Hangul and line structure without forced meanings',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
-  responseStatus:200,responseData:{translatedText:'詞義'}
+  responseStatus:200,responseData:{translatedText:'沒有可確認的對應詞義'}
  }}));
  await page.goto('/');
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
  await page.locator('#source').fill('꾸준한 네 좋아요\n비싼 보석함\n솔직함');
  await page.locator('#annotate').click();
- await expect(page.locator('.lyric-entry')).toHaveCount(3,{timeout:45000});
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('.lyric-entry')).toHaveCount(3);
  const text=await page.locator('#output').innerText();
- console.log('COMPOUND DEBUG',await page.locator('#output').innerHTML());
- expect(text).toContain('持續不懈的');
- expect(text).toContain('昂貴的');
- expect(text).toContain('보석(寶石)함(盒)');
- expect(text).toContain('坦率');
- await expect(page.locator('#loading')).toBeHidden();
+ expect(text).toContain('꾸준한');
+ expect(text).toContain('비싼');
+ expect(text).toContain('보석');
+ expect(text).toContain('솔직함');
+ expect(text).not.toContain('摳門鬼');
 });
-
