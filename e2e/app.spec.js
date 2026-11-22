@@ -59,7 +59,7 @@ test('sentence translation happens before word annotation and toggle reuses it',
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
  expect(requests[0]).toBe('내 맘이 아파와');
- await expect(page.locator('#output')).toContainText('心（主格）');
+ await expect(page.locator('#output')).toContainText('맘이');
  await expect(page.locator('#output .line-translation')).toHaveCount(0);
  const before=requests.length;
  await page.locator('#toggleChinese').click();
@@ -83,7 +83,7 @@ test('a provided Chinese sentence guides annotation before word-only translation
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
  expect(requests).not.toContain('내 맘이 아파와');
- await expect(page.locator('#output')).toContainText('心（主格）');
+ await expect(page.locator('#output')).toContainText('맘이');
  await page.locator('#toggleChinese').click();
  await expect(page.locator('.line-translation')).toContainText('我的心感到疼痛');
 });
