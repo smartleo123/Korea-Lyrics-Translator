@@ -2,6 +2,7 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {applyGaruLemmaGlosses} from "./lemma-lookup.js";
 import {fillDictionaryGlosses} from "./krdict.js";
+import {recoverAttestedInflections} from "./inflection-recovery.js";
 import {selectLineGlosses} from "./sense-selection.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
@@ -129,7 +130,7 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
-      element.tabIndex=0;element.title=w.translationSource==="KRDICT"?"韓國語基礎詞典（繁體中文詞義），點擊可修正":w.translationSource==="garu-lemma"?"Garu 還原詞幹 + 內建詞義，點擊可修正":w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
+      element.tabIndex=0;element.title=w.translationSource==="KRDICT-inflection"?"韓國語基礎詞典收錄的動詞活用與詞義，點擊可修正":w.translationSource==="KRDICT"?"韓國語基礎詞典（繁體中文詞義），點擊可修正":w.translationSource==="garu-lemma"?"Garu 還原詞幹 + 內建詞義，點擊可修正":w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
@@ -207,6 +208,10 @@ async function render(){
   // A Chinese rendering never proves a Chinese-character origin.
   loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
   lines=koreanLines.map(analyzeLine);
+  // Supplement Garu with dictionary-attested inflections, never a guessed suffix.
+  loadingDetail.textContent="正在確認韓語活用詞形…";
+  await recoverAttestedInflections(lines,lineTranslations,{signal:controller.signal});
+  if(controller.signal.aborted||serial!==renderSerial)return;
   // Fill missing meanings from a real Korean learner dictionary before
   // calling an approximate translation service.
   loadingDetail.textContent="正在查詢開源韓中詞典…";
