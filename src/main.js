@@ -380,14 +380,18 @@ function invalidateOutput(){
 }
 $("source").addEventListener("input",()=>{lyricImportController?.abort();invalidateOutput();});
 $("providedChinese").addEventListener("input",()=>{
- if(showChinese&&lines.length)message("中文翻譯內容已修改，重新標註後會優先使用新譯文。");
+ // Previously generated subtitles must not be shown/exported after edits.
+ if(lines.length||!loading.hidden)invalidateOutput();
 });
 $("annotate").onclick=render;
 
 $("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
 $("clear").onclick=()=>{resetSongSearch();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";render();};
 $("title").addEventListener("input",syncOutputTitle);
-$("download").onclick=()=>download(($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
+function safeFilename(title){
+ return String(title).replace(/[\\/:*?"<>|\x00-\x1f]/g,"_").trim().slice(0,90)||"韓語歌詞";
+}
+$("download").onclick=()=>download(safeFilename($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
 $("downloadPdf").onclick=async()=>{
  const button=$("downloadPdf");
  if(button.disabled||!lines.length)return;
