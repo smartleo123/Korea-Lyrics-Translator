@@ -1,9 +1,8 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
-import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
-import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
-import {resolveLyricSurface} from "./context-gloss.js";
-import {applySentenceContext} from "./context-alignment.js";
+import {COMMON_GLOSSARY} from "./glossary.js";
+import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
+import {validateAnnotationLines} from "./annotation-validation.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -92,19 +91,14 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
-function enhanceLine(parts,context){
- // Resolve attested whole Korean inflections BEFORE rendering dictionary Hanja
- // candidates or querying MyMemory for isolated morphological fragments.
- parts=resolveLyricSurface(parts,{custom});
- parts=completeKnownCompoundSuffixes(completeUnannotatedKorean(parts,LYRIC_SURFACE_GLOSSARY));
+function enhanceLine(parts){
+ // Recover full eojeols from Garu rather than translating detached suffixes.
+ // Do not apply song-specific word patches or Chinese-sentence-to-Hanja rules.
+ parts=completeUnannotatedKorean(parts);
  for(const part of parts){
-  if(part.type==="ambiguous"){
-   const resolved=inferHanjaInContext(part.text,part.choices,context);
-   if(resolved)Object.assign(part,resolved);
-  }
-  // A Chinese meaning is not evidence of native vs Sino-Korean origin.
-  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&(LYRIC_SURFACE_GLOSSARY[part.text]||COMMON_GLOSSARY[part.text])){
-   part.gloss=LYRIC_SURFACE_GLOSSARY[part.text]||COMMON_GLOSSARY[part.text];part.translationSource="curated";
+  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&COMMON_GLOSSARY[part.text]){
+   part.gloss=COMMON_GLOSSARY[part.text];
+   part.translationSource="lexicon";
   }
  }
  return parts;
@@ -113,10 +107,10 @@ function analyzeLine(input){
  if(!input)return [];
  try{
   const tokens=analyzer.analyze(input).tokens||[];
-  return enhanceLine(annotateLine(input,tokens,hanja,overrides()),input);
+  return enhanceLine(annotateLine(input,tokens,hanja,overrides()));
  }catch(err){
   console.warn("Garu analysis failed",err);
-  return enhanceLine(annotateLine(input,[],hanja,overrides()),input);
+  return enhanceLine(annotateLine(input,[],hanja,overrides()));
  }
 }
 function draw(){
@@ -205,7 +199,6 @@ async function render(){
   // A Chinese rendering never proves a Chinese-character origin.
   loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
   lines=koreanLines.map(analyzeLine);
-  lines=applySentenceContext(lines,lineTranslations,{custom});
   applyTranslations(lines,translations);
 
   // Stage 3: only unresolved lexical meanings use word-level MyMemory.
@@ -219,9 +212,8 @@ async function render(){
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
-  // A reliable sentence cue may correct a misleading word-only translation;
-  // never overwrite custom corrections or verified Hanja.
-  lines=applySentenceContext(lines,lineTranslations,{custom});
+  // Filter unsupported word-only meanings; sentence MT has no token alignment.
+  lines=validateAnnotationLines(lines,lineTranslations,{custom});
   saveCache(localStorage,CACHE_KEY,translations);
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
@@ -252,7 +244,7 @@ $("editForm").addEventListener("submit",e=>{
   // Local correction must not start dozens of MyMemory calls again.
   lines=splitLyrics($("source").value).map(analyzeLine);
   applyTranslations(lines,translations);
-  lines=applySentenceContext(lines,lineTranslations,{custom});
+  lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
