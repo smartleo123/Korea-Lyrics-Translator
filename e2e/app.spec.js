@@ -109,7 +109,7 @@ test('search panel and annotations stack cleanly on small screens',async({page})
 });
 
 
-test('contrastive translation distinguishes Hanja spelling from sentence meaning',async({page})=>{
+test('Hanja spelling is preserved while contextual meaning stays in the sentence translation',async({page})=>{
  const queries=[];
  await page.route('https://api.mymemory.translated.net/**',route=>{
   const q=new URL(route.request().url()).searchParams.get('q')||'';
@@ -124,8 +124,8 @@ test('contrastive translation distinguishes Hanja spelling from sentence meaning
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
  const result=await page.locator('#output').innerText();
  expect(queries[0]).toBe('당장 가고');
- expect(result).toContain('당장');
- expect(result).toContain('現在');
+ expect(result).toContain('당장(當場)');
+ expect(result).not.toContain('當場 ·');
  expect(result).toContain('가고');
  await page.locator('#toggleChinese').click();
  await expect(page.locator('.line-translation')).toContainText('現在想走');
