@@ -21,7 +21,6 @@ export const LYRIC_CONTEXT_FORMS={
  "거짓말은":{type:"native",gloss:"謊言（主題）"},
  "하얀":{type:"native",gloss:"潔白的"},
  "하얗게":{type:"native",gloss:"潔白地"},
- "방금":{type:"native",gloss:"剛剛"},
  "가끔":{type:"native",gloss:"偶爾"},
  "아주":{type:"native",gloss:"非常"},
  "진짜":{type:"native",gloss:"真的"},
@@ -32,7 +31,7 @@ export const LYRIC_CONTEXT_FORMS={
  "거야":{type:"native",gloss:"是這樣的／會如此"}
 };
 const HANGUL=/^[가-힣]+$/;
-function fixRun(parts,run,forms,custom){
+function fixRun(run,forms,custom){
  if(!run.length)return run;
  const surface=run.map(part=>part.text).join("");
  const reading=forms[surface];
@@ -44,7 +43,7 @@ function fixRun(parts,run,forms,custom){
 }
 export function resolveLyricSurface(parts,{forms=LYRIC_CONTEXT_FORMS,custom={}}={}){
  const result=[];let run=[];
- const flush=()=>{result.push(...fixRun(parts,run,forms,custom));run=[];};
+ const flush=()=>{result.push(...fixRun(run,forms,custom));run=[];};
  for(const part of parts){
   if(HANGUL.test(part.text)){
    run.push(part);
@@ -53,5 +52,14 @@ export function resolveLyricSurface(parts,{forms=LYRIC_CONTEXT_FORMS,custom={}}=
   }
  }
  flush();
+ // The attributive form 한 can mean "said" in "한 말은".
+ // Only infer that reading for this explicit construction, not globally.
+ for(let i=0;i+2<result.length;i++){
+  if(result[i].text==="한"&&/^\s+$/.test(result[i+1].text||"")&&
+     /^(?:말은|말을|말이)$/.test(result[i+2].text||"")&&
+     !custom["한"]&&result[i].source!=="custom"){
+   result[i]={text:"한",type:"native",gloss:"說過的",source:"context-phrase",translationSource:"curated-context"};
+  }
+ }
  return result;
 }
