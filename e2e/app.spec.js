@@ -4,6 +4,27 @@ test.beforeEach(async({page})=>{
  page.on('console',msg=>{if(msg.type()==='error')console.log('BROWSER CONSOLE ERROR:',msg.text());});
 });
 
+test('output heading follows song changes immediately, even during translation',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',async route=>{
+  await new Promise(resolve=>setTimeout(resolve,350));
+  try{await route.fulfill({json:{responseStatus:200,responseData:{translatedText:'翻譯'}}});}catch{}
+ });
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#title').fill("It's Me");
+ await expect(page.locator('#outputTitle')).toHaveText("02　It's Me");
+ await page.locator('#source').fill('처음보는낯선문장과 가사가 계속이어져');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeVisible();
+ await page.locator('#title').fill('Catch the Stars');
+ await expect(page.locator('#outputTitle')).toHaveText('02　Catch the Stars');
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#outputTitle')).toHaveText('02　Catch the Stars');
+ await page.locator('#source').fill('새로운 노래의 가사');
+ await expect(page.locator('#outputTitle')).toHaveText('02　Catch the Stars');
+ await page.locator('#clear').click();
+ await expect(page.locator('#outputTitle')).toHaveText('02　歌詞標註結果');
+});
 test('manual lyrics preserve stanza breaks and show optional Chinese line translation',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>{
   const q=new URL(route.request().url()).searchParams.get('q')||'';
