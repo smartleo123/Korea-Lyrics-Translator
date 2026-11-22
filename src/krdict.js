@@ -1,6 +1,7 @@
 // Optional no-key Korean->Chinese learner dictionary; on-demand shards only.
 // Data: Korean Basic Dictionary / basickorean-vocab, CC BY-SA 2.0 KR.
 // A dictionary meaning is never evidence of a Sino-Korean Hanja origin.
+import {selectSense,senseOptions} from "./sense-selection.js";
 export const DICTIONARY_SOURCE="https://github.com/basickorean/basickorean-vocab";
 export const DICTIONARY_REVISION="01516acf2c5c9796e3ccfe2b89b1d75a7536b5a1";
 export const DICTIONARY_BASE="https://cdn.jsdelivr.net/gh/basickorean/basickorean-vocab@"+DICTIONARY_REVISION+"/shards/tr/zh/";
@@ -21,28 +22,26 @@ export function keyForLemma(lemma){
  if(!HANGUL.test(lemma))return null;
  return [...lemma][0].codePointAt(0).toString(16);
 }
-export function dictionaryGloss(translation,convert=x=>x){
+export function dictionaryGloss(translation,convert=x=>x,context=""){
  if(!Array.isArray(translation))return "";
- const meanings=new Set();
+ const options=[];
  function visit(value){
   if(!Array.isArray(value))return;
   if(value.length>=2&&typeof value[0]==="string"&&typeof value[1]==="string"){
-   const first=value[0].trim().replace(/\s+/g," ");
-   if(first&&first.length<=32&&/[\u3400-\u9fff]/u.test(first))meanings.add(first);
+   const label=value[0].trim();
+   if(label&&label.length<=100&&/[\u3400-\u9fff]/u.test(label)){
+    for(const option of senseOptions(label))if(!options.includes(option))options.push(option);
+   }
    return;
   }
   for(const item of value)visit(item);
  }
  visit(translation);
- // Multiple attested meanings are alternatives, not a guessed single sense.
- // Show a short "A／B" label only for small, readable dictionaries; abstain
- // instead of flooding lyrics with dozens of unrelated definitions.
- if(meanings.size<1||meanings.size>3)return "";
+ if(!options.length)return "";
  try{
-  const converted=[...meanings].map(meaning=>convert(meaning)).filter(value=>typeof value==="string"&&value.trim());
-  if(converted.length!==meanings.size||converted.some(value=>[...value].length>16))return "";
-  const label=[...new Set(converted.map(value=>value.trim()))].join("／");
-  return [...label].length<=45?label:"";
+  const converted=options.map(value=>convert(value))
+    .filter(x=>typeof x==="string"&&x.trim()&&[...x].length<=32);
+  return selectSense(converted,context).slice(0,40);
  }catch{return "";}
 }
 export function getDictionaryConverter(){
@@ -72,13 +71,13 @@ export async function dictionaryShard(key,{fetcher=fetch,signal,baseUrl=DICTIONA
  return SHARD_CACHE.get(cacheKey);
 }
 export async function fillDictionaryGlosses(lines,{
- fetcher=fetch,signal,converter,onProgress=()=>{},baseUrl=DICTIONARY_BASE,maxShards=Infinity,concurrency=4
+ fetcher=fetch,signal,converter,onProgress=()=>{},contexts=[],baseUrl=DICTIONARY_BASE,maxShards=Infinity,concurrency=4
 }={}){
  const candidates=[];
- for(const parts of lines)for(const part of parts){
+ for(let i=0;i<lines.length;i++)for(const part of lines[i]){
   if(!["native","unknown"].includes(part.type)||part.gloss||part.source==="custom"||part.source==="grammar"||!HANGUL.test(part.text))continue;
   const lookups=[part.lemma,part.text].filter(word=>typeof word==="string"&&HANGUL.test(word));
-  if(lookups.length)candidates.push({part,lookups:[...new Set(lookups)]});
+  if(lookups.length)candidates.push({part,line:i,lookups:[...new Set(lookups)]});
  }
  if(!candidates.length)return {matched:0,total:0,failed:0,skippedShards:0};
  const allKeys=[...new Set(candidates.flatMap(c=>c.lookups.map(keyForLemma).filter(Boolean)))];
@@ -99,10 +98,10 @@ export async function fillDictionaryGlosses(lines,{
  const convert=converter||await getDictionaryConverter().catch(()=>null);
  if(!convert)return {matched:0,total:candidates.length,failed:failed+1,skippedShards};
  let matched=0;
- for(const {part,lookups} of candidates){
+ for(const {part,lookups,line} of candidates){
   for(const word of lookups){
    const translations=shards.get(keyForLemma(word))?.[word];
-   const gloss=dictionaryGloss(translations,convert);
+   const gloss=dictionaryGloss(translations,convert,contexts[line]?.text||"");
    if(!gloss)continue;
    // Only vocabulary that was genuinely missing is filled by this dictionary.
    if(part.gloss)break;

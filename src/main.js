@@ -2,6 +2,7 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {applyGaruLemmaGlosses} from "./lemma-lookup.js";
 import {fillDictionaryGlosses} from "./krdict.js";
+import {selectLineGlosses} from "./sense-selection.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {validateAnnotationLines} from "./annotation-validation.js";
@@ -209,7 +210,7 @@ async function render(){
   // Fill missing meanings from a real Korean learner dictionary before
   // calling an approximate translation service.
   loadingDetail.textContent="正在查詢開源韓中詞典…";
-  const dictionaryResult=await fillDictionaryGlosses(lines,{signal:controller.signal,onProgress:({completed,total})=>{
+  const dictionaryResult=await fillDictionaryGlosses(lines,{signal:controller.signal,contexts:lineTranslations,onProgress:({completed,total})=>{
     if(!controller.signal.aborted&&serial===renderSerial)
       loadingDetail.textContent="開源詞典查詢中 "+completed+" / "+total+"…";
   }});
@@ -232,6 +233,7 @@ async function render(){
   applyTranslations(lines,translations,{contexts:koreanLines});
   // Evidence can guide manual review, but sentence translation does not
   // align individual words; preserve complete lexical annotations.
+  lines=selectLineGlosses(lines,lineTranslations);
   lines=validateAnnotationLines(lines,lineTranslations,{custom});
   saveCache(localStorage,CACHE_KEY,translations);
   if(controller.signal.aborted||serial!==renderSerial)return;
@@ -265,6 +267,7 @@ $("editForm").addEventListener("submit",e=>{
   lines=splitLyrics($("source").value).map(analyzeLine);
   const sourceLines=splitLyrics($("source").value);
   applyTranslations(lines,translations,{contexts:sourceLines});
+  lines=selectLineGlosses(lines,lineTranslations);
   lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });

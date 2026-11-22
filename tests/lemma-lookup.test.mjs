@@ -61,3 +61,12 @@ test("morphology from an adjacent or crossing surface cannot fabricate a lemma",
  assert.equal(out[0].gloss,"");
  assert.equal(out[1].lemma,undefined);
 });
+
+test("compound nouns followed by a particle look up the longest Garu-supported noun",()=>{
+ const parts=[{text:"손끝으로",type:"native",gloss:""}];
+ const tokens=[{text:"손",pos:"NNG",start:0,end:1},{text:"끝",pos:"NNG",start:1,end:2},{text:"으로",pos:"JKB",start:2,end:4}];
+ const result=applyGaruLemmaGlosses(parts,tokens,{손끝:"指尖"});
+ assert.equal(result[0].text,"손끝으로");
+ assert.equal(result[0].lemma,"손끝");
+ assert.equal(result[0].gloss,"指尖");
+});

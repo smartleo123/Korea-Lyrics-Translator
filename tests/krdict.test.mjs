@@ -4,8 +4,9 @@ import {dictionaryGloss,fillDictionaryGlosses,keyForLemma} from "../src/krdict.j
 
 test("real Korean learner dictionary shard schema yields a concise Chinese gloss",()=>{
  assert.equal(dictionaryGloss([[["讲，述说","用语言表达"]]],x=>x.replace("讲","講")),"講，述说");
- assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]]),"一种意思／另一种意思");
- assert.equal(dictionaryGloss([[["一","1"],["二","2"],["三","3"],["四","4"]]]),"");
+ assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]]),"一种意思");
+ assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]],x=>x,"這是另一種意思"),"另一种意思");
+ assert.equal(dictionaryGloss([[["一","1"],["二","2"],["三","3"],["四","4"]]]),"一");
  assert.equal(dictionaryGloss(undefined),"");
  assert.equal(keyForLemma("말하다"),"b9d0");
  assert.equal(keyForLemma("?"),null);
@@ -31,7 +32,7 @@ test("polysemous, corrupt, or unavailable dictionary data is not invented",async
  const r=await fillDictionaryGlosses(lines,{fetcher,converter:x=>x,baseUrl:"https://dictionary.test/"});
  assert.equal(r.matched,1);
  assert.ok(r.failed>=1);
- assert.equal(lines[0][0].gloss,"一／单一");
+ assert.equal(lines[0][0].gloss,"一");
  assert.equal(lines[0][1].gloss,"");
 });
 test("source and user-supplied glosses always outrank dictionary",async()=>{
@@ -66,4 +67,13 @@ test("explicit shard budgets report omitted shards and preserve unknown words",a
  const result=await fillDictionaryGlosses(lines,{fetcher:async()=>({ok:true,json:async()=>({})}),converter:x=>x,baseUrl:"https://limited-shards.test/",maxShards:1});
  assert.equal(result.skippedShards,1);
  assert.ok(lines[0].every(w=>!w.gloss));
+});
+
+test("selects one plausible sense using line translation, not slash-separated synonyms",async()=>{
+ const lines=[[{text:"얼음장",type:"native",gloss:""}]];
+ const fetcher=async()=>({ok:true,json:async()=>({"얼음장":[[["冰層，冰塊，冰磚","用於形容非常寒冷的物體"]]]})});
+ const out=await fillDictionaryGlosses(lines,{fetcher,baseUrl:"https://sense.test/",converter:x=>x,contexts:[{text:"像冰塊一樣冷酷"}]});
+ assert.equal(out.matched,1);
+ assert.equal(lines[0][0].gloss,"冰塊");
+ assert.equal(lines[0][0].gloss.includes("／"),false);
 });

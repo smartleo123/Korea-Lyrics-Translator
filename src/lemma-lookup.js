@@ -14,6 +14,15 @@ export function lemmaFromMorphs(surface,morphs,glossary){
   if(NOMINAL.test(root.pos)&&!surface.startsWith(root.text))return null;
   return {lemma,gloss:typeof glossary[lemma]==="string"?glossary[lemma]:"",source:"garu-lemma"};
  }
+ // Compound nominal roots, optionally followed by a case particle:
+ // e.g. 손+끝+으로 -> dictionary headword 손끝.
+ // Only use contiguous Garu-attested nouns, never reconstruct syllables.
+ if(lexical.length>1&&lexical.every(m=>NOMINAL.test(m.pos))&&
+    other.every(m=>GRAMMATICAL.test(m.pos||"")||m.pos==="")){
+  const lemma=lexical.map(m=>m.text).join("");
+  if(surface.startsWith(lemma))
+   return {lemma,gloss:typeof glossary[lemma]==="string"?glossary[lemma]:"",source:"garu-compound"};
+ }
  // Nominal stem + derivational 하 + verbal/adjectival ending (e.g. 행복하다).
  // Only accept a lemma present in the dictionary; never synthesize a gloss.
  if(lexical.length===1&&NOMINAL.test(lexical[0].pos)){
