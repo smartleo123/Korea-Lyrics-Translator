@@ -81,3 +81,8 @@ test('word-only translations cannot leak between different lyric sentences',asyn
  assert.equal(one[0][0].gloss,'希望');
  assert.equal(calls,1);
 });
+
+test('decodes MyMemory HTML entities in translated Chinese',()=>{
+ assert.equal(extractTranslation({responseStatus:200,responseData:{translatedText:'我&#24859;你 &amp; 他'}},'사랑해'),'我愛你 & 他');
+ assert.equal(extractTranslation({responseStatus:200,responseData:{translatedText:'&#x4F60;&#x597D;'}},'안녕'),'你好');
+});
