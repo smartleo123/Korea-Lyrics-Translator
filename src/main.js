@@ -304,7 +304,7 @@ function invalidateOutput(){
  $("download").disabled=true;$("copy").disabled=true;
  message($("source").value.trim()?"歌詞內容已修改，請按「自動標註歌詞」以更新結果。":"");
 }
-$("source").addEventListener("input",invalidateOutput);
+$("source").addEventListener("input",()=>{lyricImportController?.abort();invalidateOutput();});
 $("providedChinese").addEventListener("input",()=>{
  if(showChinese&&lines.length)message("中文翻譯內容已修改，重新標註後會優先使用新譯文。");
 });
