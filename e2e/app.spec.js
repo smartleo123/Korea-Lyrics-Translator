@@ -433,6 +433,7 @@ test('editing provided Chinese after annotation invalidates outdated results',as
  await page.goto('/');
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
  await page.locator('#source').fill('사랑해');
+ await page.locator('details.optional-translation').evaluate(el=>el.open=true);
  await page.locator('#providedChinese').fill('我愛你');
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
