@@ -23,6 +23,41 @@ test('minimal lyrics placeholder, removed dictionary buttons, and downloadable P
 });
 
 import {test,expect} from '@playwright/test';
+test('usage help opens from upper-right, consolidates text, and closes by button or Escape',async({page})=>{
+ await page.goto('/');
+ await expect(page.locator('#helpOpen')).toBeVisible();
+ await expect(page.locator('#helpDialog')).not.toBeVisible();
+ await expect(page.locator('header p')).toHaveCount(0);
+ await expect(page.locator('.callout')).toHaveCount(0);
+ await expect(page.locator('.foot')).toHaveCount(0);
+ await page.locator('#helpOpen').click();
+ await expect(page.locator('#helpDialog')).toBeVisible();
+ await expect(page.locator('#helpDialog')).toContainText('紅色漢字詞');
+ await expect(page.locator('#helpDialog')).toContainText('LRCLIB 搜尋');
+ await expect(page.locator('#helpDialog')).toContainText('Garu 形態分析');
+ await expect(page.locator('#helpDialog')).toContainText('非完美語意判斷');
+ await page.getByRole('button',{name:'關閉使用說明'}).click();
+ await expect(page.locator('#helpDialog')).not.toBeVisible();
+ await page.locator('#helpOpen').click();
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#helpDialog')).not.toBeVisible();
+ await page.locator('#source').fill('사랑해');
+ await expect(page.locator('#source')).toHaveValue('사랑해');
+});
+test('usage help remains usable on narrow mobile screens',async({page})=>{
+ await page.setViewportSize({width:375,height:667});
+ await page.goto('/');
+ await expect(page.locator('#helpOpen')).toBeInViewport();
+ await page.locator('#helpOpen').click();
+ await expect(page.locator('#helpDialog')).toBeVisible();
+ const bounds=await page.locator('#helpDialog').boundingBox();
+ expect(bounds.x).toBeGreaterThanOrEqual(0);
+ expect(bounds.x+bounds.width).toBeLessThanOrEqual(375);
+ await page.getByRole('button',{name:'關閉使用說明'}).click();
+ await expect(page.locator('#helpDialog')).not.toBeVisible();
+});
+
+
 test.beforeEach(async({page})=>{
  page.on('pageerror',err=>console.log('BROWSER PAGE ERROR:',err.stack||err.message));
  page.on('console',msg=>{if(msg.type()==='error')console.log('BROWSER CONSOLE ERROR:',msg.text());});
