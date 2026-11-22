@@ -8,7 +8,9 @@ const SURFACES=new Map([
  ["게",{gloss:"事",lemma:"것",type:"NNB"}],
  ["걸",{gloss:"事",lemma:"것",type:"NNB"}],
  ["안",{gloss:"不",lemma:"안",type:"MAG"}],
- ["수",{gloss:"可能",lemma:"수",type:"NNB"}]
+ ["수",{gloss:"可能",lemma:"수",type:"NNB"}],
+ ["내",{gloss:"我的",lemma:"나",type:"POSSESSIVE"}],
+ ["네",{gloss:"你的",lemma:"너",type:"POSSESSIVE"}]
 ]);
 function nearby(tokens,start,end,dir){
  const sorted=tokens.filter(t=>Number.isInteger(t.start)&&Number.isInteger(t.end))
@@ -27,6 +29,10 @@ function grammarMatch(part,tokens,spanStart,spanEnd,source){
  const previous=nearby(tokens,spanStart,spanEnd,-1);
  const next=nearby(tokens,spanStart,spanEnd,1);
  const pos=local.map(t=>t.pos||"");
+ if(rule.type==="POSSESSIVE"){
+  // Possessive determiners before an attested noun are not the pronoun "I".
+  if(next&&/^(?:NNG|NNP|NNB|XR)$/.test(next.pos||""))return rule;
+ }
  if(rule.type==="NP"){
   // Confirmed pronouns or contractions in independent clause position.
   // Avoid reinterpreting e.g. a proper name ending in the same syllable.

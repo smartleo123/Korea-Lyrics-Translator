@@ -11,22 +11,26 @@ export function senseOptions(value){
  return out;
 }
 const clean=value=>String(value||"").replace(/[\s\u200b\u3000，,。！？!?、；;（）()「」『』]/gu,"");
+export function phraseEvidence(gloss,context=""){
+ const sentence=clean(context),normalized=clean(gloss);
+ if(!sentence||!normalized)return 0;
+ if(sentence.includes(normalized))return 100+normalized.length;
+ if(normalized.length>=2){
+  const chars=[...normalized];
+  const bigrams=chars.slice(0,-1).map((_,i)=>chars.slice(i,i+2).join(""));
+  const hits=bigrams.filter(b=>sentence.includes(b)).length;
+  if(hits)return 10+hits/bigrams.length;
+ }
+ return 0;
+}
 export function selectSense(options,context=""){
  const senses=[...new Set(options.flatMap(x=>senseOptions(x)))].filter(x=>x&&!/^[?？]/u.test(x));
  if(!senses.length)return "";
  const sentence=clean(context);
  let winner=senses[0],best=0;
  for(const gloss of senses){
-  const normalized=clean(gloss);
-  if(!normalized||!sentence)continue;
-  let score=0;
-  if(sentence.includes(normalized)){
-   score=100+normalized.length;
-  }else if(normalized.length>=2){
-   const bigrams=[...normalized].slice(0,-1).map((_,i)=>normalized.slice(i,i+2));
-   const matches=bigrams.filter(b=>sentence.includes(b)).length;
-   if(matches)score=10+matches/bigrams.length;
-  }
+  if(!sentence)continue;
+  const score=phraseEvidence(gloss,sentence);
   if(score>best){best=score;winner=gloss;}
  }
  return winner;

@@ -1,7 +1,7 @@
 // Optional no-key Korean->Chinese learner dictionary; on-demand shards only.
 // Data: Korean Basic Dictionary / basickorean-vocab, CC BY-SA 2.0 KR.
 // A dictionary meaning is never evidence of a Sino-Korean Hanja origin.
-import {selectSense,senseOptions} from "./sense-selection.js";
+import {selectSense,senseOptions,phraseEvidence} from "./sense-selection.js";
 export const DICTIONARY_SOURCE="https://github.com/basickorean/basickorean-vocab";
 export const DICTIONARY_REVISION="01516acf2c5c9796e3ccfe2b89b1d75a7536b5a1";
 export const DICTIONARY_BASE="https://cdn.jsdelivr.net/gh/basickorean/basickorean-vocab@"+DICTIONARY_REVISION+"/shards/tr/zh/";
@@ -28,9 +28,11 @@ export function dictionaryGloss(translation,convert=x=>x,context=""){
  function visit(value){
   if(!Array.isArray(value))return;
   if(value.length>=2&&typeof value[0]==="string"&&typeof value[1]==="string"){
-   const label=value[0].trim();
+   const label=value[0].trim(),description=value[1].trim();
    if(label&&label.length<=100&&/[\u3400-\u9fff]/u.test(label)){
-    for(const option of senseOptions(label))if(!options.includes(option))options.push(option);
+    for(const option of senseOptions(label)){
+     if(!options.some(x=>x.label===option))options.push({label:option,description});
+    }
    }
    return;
   }
@@ -39,9 +41,22 @@ export function dictionaryGloss(translation,convert=x=>x,context=""){
  visit(translation);
  if(!options.length)return "";
  try{
-  const converted=options.map(value=>convert(value))
-    .filter(x=>typeof x==="string"&&x.trim()&&[...x].length<=32);
-  return selectSense(converted,context).slice(0,40);
+  const converted=options.map(item=>({
+    label:convert(item.label),description:convert(item.description)
+   })).filter(x=>typeof x.label==="string"&&x.label.trim()&&[...x.label].length<=32);
+  if(!converted.length)return "";
+  // The dictionary definition can carry the exact contextual synonym even
+  // when the concise headword gloss does not (e.g. "intelligent" vs "clear").
+  let winner=converted[0],best=0;
+  for(const option of converted){
+   const primary=phraseEvidence(option.label,context);
+   // A definition match is weaker than a literal headword match, but should
+   // still outrank the dictionary's first unrelated sense.
+   const secondary=phraseEvidence(option.description,context);
+   const rank=primary>=100?primary+100:Math.max(primary,secondary>=100?45:secondary?5+secondary/10:0);
+   if(rank>best){best=rank;winner=option;}
+  }
+  return winner.label.trim().slice(0,40);
  }catch{return "";}
 }
 export function getDictionaryConverter(){

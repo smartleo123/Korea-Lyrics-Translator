@@ -77,3 +77,10 @@ test("selects one plausible sense using line translation, not slash-separated sy
  assert.equal(lines[0][0].gloss,"冰塊");
  assert.equal(lines[0][0].gloss.includes("／"),false);
 });
+
+test("dictionary definition disambiguates synonyms without a song-specific answer table",()=>{
+ const senses=[[["清晰，清楚","明晰、明确。"],["聪慧","聪明伶俐。"]]];
+ const convert=x=>x.replaceAll("聪","聰").replaceAll("丽","麗").replaceAll("晰","晰").replaceAll("确","確");
+ assert.equal(dictionaryGloss(senses,convert,"因為我很聰明"),"聰慧");
+ assert.equal(dictionaryGloss(senses,convert,"說明很清晰"),"清晰");
+});

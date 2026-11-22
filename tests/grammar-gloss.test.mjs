@@ -56,3 +56,13 @@ test("bound noun followed by subject particle rejects the unrelated price gloss"
    {text:" ",type:"plain"},{text:"있어",type:"native"}];
  assert.equal(applyGrammarGlosses(parts,ts,source)[1].gloss,"可能");
 });
+
+test("possessive Korean determiner must be followed by a noun",()=>{
+ const source="내 걱정은 낭비야";
+ const ts=tokens(source,[["내","NP"],["걱정","NNG"],["은","JX"],["낭비","NNG"]]);
+ const parts=[{text:"내",type:"native",gloss:"我"},{text:" ",type:"plain"},{text:"걱정은",type:"hanja",gloss:"懸念"}];
+ assert.equal(applyGrammarGlosses(parts,ts,source)[0].gloss,"我的");
+ const other=applyGrammarGlosses([{text:"내",type:"native",gloss:"河流"}],
+  [{text:"내",pos:"NNG",start:0,end:1}],"내");
+ assert.equal(other[0].gloss,"河流");
+});
