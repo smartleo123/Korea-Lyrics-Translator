@@ -23,13 +23,23 @@ export function translationCandidates(lines,cache={},max=DAILY_LIMIT,{contexts=[
  const keys=words.slice(0,max);
  return {words:keys.map(key=>key.split("\u241E")[0]),requests:keys.map(key=>({word:key.split("\u241E")[0],key})),total:words.length};
 }
+// MyMemory may return HTML-escaped text; never display entity codes as lyrics.
+function decodeEntities(value){
+ const named={amp:"&",lt:"<",gt:">",quot:'"',apos:"'",nbsp:" ",hellip:"…"};
+ return value.replace(/&(#(?:x[0-9a-f]+|[0-9]+)|[a-z]+);/gi,(match,name)=>{
+  if(name[0]!=="#")return named[name.toLowerCase()]??match;
+  const hex=name[1]?.toLowerCase()==="x";
+  const cp=Number.parseInt(name.slice(hex?2:1),hex?16:10);
+  return Number.isInteger(cp)&&cp>0&&cp<=0x10ffff&&!(cp>=0xd800&&cp<=0xdfff)?String.fromCodePoint(cp):match;
+ });
+}
 export function extractTranslation(payload,source,maxChars=100){
  if(!payload||Number(payload.responseStatus)!==200)return "";
  const raw=payload.responseData?.translatedText;
  if(typeof raw!=="string")return "";
  // HTML entities are decoded by the browser later; prevent displaying an
  // unchanged or empty translation as if it were a meaningful Chinese gloss.
- const candidate=raw.trim();
+ const candidate=decodeEntities(raw).trim();
  if(!candidate||candidate===source||/^(?:MYMEMORY WARNING|QUERY LENGTH LIMIT|NO MATCH)/i.test(candidate))return "";
  if(!/[\u3400-\u9fff]/.test(candidate))return "";
  return candidate.slice(0,maxChars);
