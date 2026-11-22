@@ -60,13 +60,19 @@ export function selectContextCandidates(lines,rows,{max=12}={}){
  }
  return candidates.sort((a,b)=>a.priority-b.priority||a.i-b.i||a.j-b.j).slice(0,max);
 }
+// Do not advertise unverified word-only machine translations as certain glosses.
+// Question-mark-prefixed outputs indicate that a provider could not resolve the meaning.
+export function readableGloss(value){
+ const text=String(value||"").trim().replace(/^≈/,"").trim();
+ return /^[?？]/u.test(text)? "":text;
+}
 export function displayAnnotation(part){
- const origin=String(part.gloss||"");
- const meaning=String(part.contextGloss||"");
+ const origin=part.unverifiedGloss?"":readableGloss(part.gloss);
+ const meaning=readableGloss(part.contextGloss);
  return meaning&&meaning!==origin?[origin,meaning].filter(Boolean).join(" · "):origin;
 }
 function applyResult(part,result){
- if(!result?.gloss||!(result.confidence>=.35))return false;
+ if(!readableGloss(result?.gloss)||!(result.confidence>=.35))return false;
  if(part.type==="hanja"){
   part.contextGloss=result.gloss;
   part.contextSource="sentence-contrast";

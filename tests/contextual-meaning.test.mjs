@@ -60,3 +60,11 @@ test('weak contrastive evidence must not overwrite an existing meaning',async()=
  restoreCachedContextGlosses([line],[{text:'我喜歡這首歌'}],cache);
  assert.equal(line[0].gloss,'愛');
 });
+
+test('unreliable and question-mark-prefixed machine glosses are not displayed',()=>{
+ const p=tok('잘못된','native','? 似乎是某個詞');
+ assert.equal(displayAnnotation(p),'');
+ assert.equal(displayAnnotation(tok('어휘','native','中文字',{unverifiedGloss:true})),'');
+ assert.equal(displayAnnotation(tok('어휘','native','可靠詞義')),'可靠詞義');
+ assert.equal(displayAnnotation(tok('왜','native','為什麼？')),'為什麼？');
+});

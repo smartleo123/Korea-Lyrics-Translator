@@ -39,3 +39,10 @@ test('grammar fragments never receive context evidence',()=>{
  const part=token('은','銀','native',{source:'grammar'});
  assert.deepEqual(validateWordAnnotations([part],'說話'),[part]);
 });
+
+test('nonliteral machine gloss is withheld without altering original data',()=>{
+ const before=token('독특한','一部電視','native',{translationSource:'MyMemory'});
+ const [after]=validateWordAnnotations([before],'特別的舞台');
+ assert.equal(after.unverifiedGloss,true);
+ assert.equal(after.gloss,'一部電視');
+});

@@ -448,3 +448,15 @@ test('editing provided Chinese after annotation invalidates outdated results',as
  await expect(page.locator('.line-translation')).toContainText('新的人工譯文');
 });
 
+
+test('annotation UI contains neither local AI alignment nor uncertainty prefixes',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{responseStatus:200,responseData:{translatedText:'? 不確定詞義'}}}));
+ await page.goto('/');
+ await expect(page.locator('#runLocalAI')).toHaveCount(0);
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('사랑해');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#output')).not.toContainText('(?');
+ await expect(page.locator('#stats')).not.toContainText('（?）');
+});

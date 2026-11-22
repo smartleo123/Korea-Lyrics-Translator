@@ -7,7 +7,6 @@ import {enrichContextGlosses,restoreCachedContextGlosses,displayAnnotation,CONTE
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
-import {getLocalModel,alignInBrowser} from "./local-alignment.js";
 import {saveAnnotatedPdf} from "./pdf-export.js";
 import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVariants,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
@@ -34,7 +33,6 @@ let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(loca
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
-let localRunSerial=0;
 function refreshReader(){
  if(!readerDialog.open)return;
  $("readerTitle").textContent=$("title").value.trim()||"歌詞閱讀模式";
@@ -128,13 +126,12 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
-      if(w.unverifiedGloss)element.classList.add("uncertain-gloss");
       element.tabIndex=0;element.title=w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
         // Question mark distinguishes context-unverified vocabulary MT.
-        note.textContent="("+(w.unverifiedGloss?"? ":"")+displayAnnotation(w).replace(/^≈/,"")+")";
+        note.textContent="("+displayAnnotation(w).replace(/^≈/,"")+")";
         element.append(note);
       }
       element.addEventListener("click",()=>edit(i,j));
@@ -147,16 +144,13 @@ function draw(){
     output.append(entry);
   }
   const coverage=countKoreanCoverage(lines);
-  const uncertain=lines.flat().filter(p=>p.unverifiedGloss).length;
-  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan+(uncertain?"｜待核對詞義 "+uncertain+"（?）":"");
+  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
   $("openReader").disabled=!input.trim();
-  $("runLocalAI").disabled=!input.trim();
   refreshReader();
 }
 function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…"){
- if(isLoading)resetLocalAI();
  loading.hidden=!isLoading;
  output.hidden=isLoading;
  status.hidden=isLoading;
@@ -168,7 +162,6 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("downloadPdf").disabled=isLoading;
  $("copy").disabled=isLoading;
  $("openReader").disabled=isLoading||!lines.length;
- $("runLocalAI").disabled=isLoading||!lines.length;
  if(isLoading&&readerDialog.open)readerDialog.close();
 }
 async function render(){
@@ -275,7 +268,7 @@ $("editForm").addEventListener("submit",e=>{
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function exportMarkup(){
 const title=$("title").value.trim()||"韓語歌詞詞源對照";
-const body=lines.map((parts,index)=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(displayAnnotation(p)?'<small>('+esc((p.unverifiedGloss?"? ":"")+displayAnnotation(p).replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>'+(showChinese&&lineTranslations[index]?.text?'<div class="translation">'+esc(lineTranslations[index].text)+'</div>':"")).join("\n");
+const body=lines.map((parts,index)=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(displayAnnotation(p)?'<small>('+esc(displayAnnotation(p).replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>'+(showChinese&&lineTranslations[index]?.text?'<div class="translation">'+esc(lineTranslations[index].text)+'</div>':"")).join("\n");
 return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{background:#10151e;color:white;font:19px/2 system-ui,"Noto Sans KR","Noto Sans TC",sans-serif;max-width:820px;margin:35px auto;padding:0 20px}.hanja{color:#ff667e}.native{color:white}.loan{color:#c69bff}.unknown{color:#ffc77d}small{font-size:.74em;opacity:.8}.line{white-space:pre;min-height:1.6em;width:max-content;min-width:100%}small{white-space:nowrap}.translation{white-space:pre;color:#b7cced;font-size:.85em;border-left:2px solid #42658d;padding-left:12px;margin-bottom:10px}</style><h1>'+esc(title)+'</h1>'+body+'</html>';
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -375,57 +368,7 @@ $("toggleChinese").onclick=()=>{
  if(lines.length)draw();
 };
 
-function resetLocalAI(){
- localRunSerial++;
- $("localAIResults").replaceChildren();
- $("localAIStatus").textContent="";
- $("runLocalAI").disabled=true;
-}
-$("runLocalAI").addEventListener("click",async()=>{
- if(!lines.length||!loading.hidden)return;
- const serial=++localRunSerial;
- const button=$("runLocalAI"),status=$("localAIStatus"),container=$("localAIResults");
- button.disabled=true;container.replaceChildren();
- try{
-  status.textContent="正在下載或載入本機 AI 模型（首次約 118 MB）…";
-  const model=await getLocalModel();
-  if(serial!==localRunSerial)return;
-  const inputLines=splitLyrics($("source").value);
-  const candidates=inputLines.map((text,i)=>({text,translation:lineTranslations[i]?.text||"",i}))
-   .filter(row=>/[가-힣]/.test(row.text)&&/[\u3400-\u9fff]/.test(row.translation)).slice(0,12);
-  if(!candidates.length){status.textContent="目前沒有可比對的韓中譯文。";return;}
-  let checked=0;
-  for(const row of candidates){
-   if(serial!==localRunSerial)return;
-   status.textContent="本機比對中："+(checked+1)+" / "+candidates.length;
-   const alignment=await alignInBrowser(row.text,row.translation,{model});
-   if(serial!==localRunSerial)return;
-   const section=document.createElement("div");section.className="local-ai-row";
-   const title=document.createElement("strong");title.textContent="第 "+(row.i+1)+" 行：可能的語意對應";
-   section.append(title);
-   if(alignment.links.length){
-    const tags=document.createElement("div");tags.className="local-ai-tags";
-    for(const link of alignment.links){
-     const tag=document.createElement("span");
-     tag.textContent=alignment.source[link.source]+" ↔ "+alignment.target[link.target]+"（相似度 "+link.similarity.toFixed(2)+"）";
-     tags.append(tag);
-    }
-    section.append(tags);
-   }else{
-    const noMatch=document.createElement("p");noMatch.className="hint";
-    noMatch.textContent="沒有足夠可靠的詞組對應，不強行配對。";
-    section.append(noMatch);
-   }
-   container.append(section);checked++;
-  }
-  status.textContent="已檢查 "+checked+" 行；相似度不等於詞義或詞源的正確性。";
- }catch(error){
-  if(serial===localRunSerial)status.textContent="無法啟動本機 AI。可能是網路、記憶體或模型載入限制；一般標註不受影響。";
-  console.warn("Local model unavailable",error);
- }finally{if(serial===localRunSerial)button.disabled=false;}
-});
 function invalidateOutput(){
- resetLocalAI();
  syncOutputTitle();
  if(translationController)translationController.abort();
  renderSerial++;
@@ -467,6 +410,6 @@ $("downloadPdf").onclick=async()=>{
   button.disabled=!lines.length||!$("source").value.trim()||!loading.hidden;
  }
 };
-$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(displayAnnotation(p)?"("+(p.unverifiedGloss?"? ":"")+displayAnnotation(p)+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
+$("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(displayAnnotation(p)?"("+displayAnnotation(p)+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
 $("annotate").disabled=true;
 initialize();

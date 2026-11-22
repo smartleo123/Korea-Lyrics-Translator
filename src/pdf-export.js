@@ -25,7 +25,7 @@ export function buildPdfContent(document,lines,{title="韓語歌詞詞源對照"
    if(displayAnnotation(part)){
     const gloss=document.createElement("small");
     gloss.style.cssText="font-size:.76em;opacity:.88;";
-    gloss.textContent="("+(part.unverifiedGloss?"? ":"")+displayAnnotation(part).replace(/^≈/,"")+")";
+    gloss.textContent="("+displayAnnotation(part).replace(/^≈/,"")+")";
     word.append(gloss);
    }
    line.append(word);
