@@ -4,21 +4,24 @@
 import {translationScheduler} from "./request-scheduler.js";
 export const PROVIDER="MyMemory";
 export const DAILY_LIMIT=80;
-export const CACHE_KEY="korean-lyrics-mymemory-cache-v1";
-export function translationCandidates(lines,cache={},max=DAILY_LIMIT){
+export const CACHE_KEY="korean-lyrics-mymemory-context-v2";
+export function translationKey(word,context=""){return context?word+"\u241E"+context:word;}
+export function translationCandidates(lines,cache={},max=DAILY_LIMIT,{contexts=[]}={}){
  const frequency=new Map();
- for(const items of lines)for(const p of items){
+ for(let i=0;i<lines.length;i++)for(const p of lines[i]){
    // Ambiguous Hanjas also need a Chinese meaning; that is NOT a Hanja
    // spelling and does not resolve their etymological ambiguity.
-   if(!["native","unknown","ambiguous"].includes(p.type)||p.gloss||!/^[가-힣]{2,}$/.test(p.text)||cache[p.text])continue;
+   if(!["native","unknown","ambiguous"].includes(p.type)||p.gloss||!/^[가-힣]{2,}$/.test(p.text)||cache[translationKey(p.text,contexts[i])])continue;
    // Don't translate detached particles or grammatical endings as dictionary words.
    if(p.source==="grammar")continue;
-   frequency.set(p.text,(frequency.get(p.text)||0)+1);
+   const key=translationKey(p.text,contexts[i]);
+   frequency.set(key,(frequency.get(key)||0)+1);
  }
  // Prioritize frequently used vocabulary: if the free service has a quota,
  // a chorus repeated four times should be translated ahead of a one-off word.
  const words=[...frequency].sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length||a[0].localeCompare(b[0])).map(([word])=>word);
- return {words:words.slice(0,max),total:words.length};
+ const keys=words.slice(0,max);
+ return {words:keys.map(key=>key.split("\u241E")[0]),requests:keys.map(key=>({word:key.split("\u241E")[0],key})),total:words.length};
 }
 export function extractTranslation(payload,source,maxChars=100){
  if(!payload||Number(payload.responseStatus)!==200)return "";
@@ -51,27 +54,28 @@ export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000,ma
 }
 // Back off after consecutive failures rather than issuing dozens of slow
 // requests to an unavailable/rate-limited free service.
-export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onItem=()=>{},limit=DAILY_LIMIT,maxFailures=3}={}){
- const {words,total}=translationCandidates(lines,cache,limit);
+export async function translateMissing(lines,{cache={},fetcher=fetch,signal,onItem=()=>{},limit=DAILY_LIMIT,maxFailures=3,contexts=[]}={}){
+ const {requests,total}=translationCandidates(lines,cache,limit,{contexts});
  let done=0,failed=0,attempted=0,stopped=false;
  let consecutiveFailures=0;
- for(const word of words){
+ for(const {word,key} of requests){
   if(signal?.aborted)break;
   attempted++;
   try{
    const translation=await translateOne(word,{fetcher,signal});
-   if(translation){cache[word]=translation;onItem(word,translation);done++;consecutiveFailures=0;}
+   if(translation){cache[key]=translation;onItem(word,translation);done++;consecutiveFailures=0;}
    else {failed++;consecutiveFailures++;}
   }catch(e){if(signal?.aborted)break;failed++;consecutiveFailures++;}
   if(consecutiveFailures>=maxFailures){stopped=true;break;}
 
  }
- return {done,failed,total,attempted,skipped:Math.max(0,total-attempted),limited:total>words.length,stopped};
+ return {done,failed,total,attempted,skipped:Math.max(0,total-attempted),limited:total>requests.length,stopped};
 }
-export function applyTranslations(lines,cache){
- for(const parts of lines)for(const part of parts){
-  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&cache[part.text]){
-   part.gloss=cache[part.text];
+export function applyTranslations(lines,cache,{contexts=[]}={}){
+ for(let i=0;i<lines.length;i++)for(const part of lines[i]){
+  const key=translationKey(part.text,contexts[i]);
+  if(["native","unknown","ambiguous"].includes(part.type)&&!part.gloss&&cache[key]){
+   part.gloss=cache[key];
    part.translationSource=PROVIDER;
   }
  }
