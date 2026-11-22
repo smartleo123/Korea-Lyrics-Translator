@@ -1,6 +1,7 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {applyGaruLemmaGlosses} from "./lemma-lookup.js";
+import {applyGrammarGlosses} from "./grammar-gloss.js";
 import {fillDictionaryGlosses} from "./krdict.js";
 import {recoverAttestedInflections} from "./inflection-recovery.js";
 import {selectLineGlosses} from "./sense-selection.js";
@@ -96,7 +97,8 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
-function enhanceLine(parts,tokens=[]){
+function enhanceLine(parts,tokens=[],source=parts.map(p=>p.text).join("")){
+ parts=applyGrammarGlosses(parts,tokens,source);
  // Recover full eojeols from Garu rather than translating detached suffixes.
  // Do not apply song-specific word patches or Chinese-sentence-to-Hanja rules.
  parts=completeUnannotatedKorean(parts);
@@ -112,10 +114,10 @@ function analyzeLine(input){
  if(!input)return [];
  try{
   const tokens=analyzer.analyze(input).tokens||[];
-  return enhanceLine(annotateLine(input,tokens,hanja,overrides()),tokens);
+  return enhanceLine(annotateLine(input,tokens,hanja,overrides()),tokens,input);
  }catch(err){
   console.warn("Garu analysis failed",err);
-  return enhanceLine(annotateLine(input,[],hanja,overrides()));
+  return enhanceLine(annotateLine(input,[],hanja,overrides()),[],input);
  }
 }
 function draw(){
