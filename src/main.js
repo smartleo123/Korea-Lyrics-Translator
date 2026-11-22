@@ -15,6 +15,7 @@ import {splitLyrics} from "./layout.js";
 import {saveAnnotatedPdf} from "./pdf-export.js";
 import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVariants,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
+import {prepareBrowserTranslator} from "./browser-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
 const helpDialog=$("helpDialog");
@@ -35,6 +36,7 @@ let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(sav
 const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
 let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
+let browserTranslator=null;
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
@@ -97,6 +99,17 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
+$("enableBrowserTranslator").addEventListener("click",async()=>{
+ const button=$("enableBrowserTranslator");
+ button.disabled=true;
+ message("正在確認瀏覽器是否支援韓中翻譯，可能需要下載語言套件…");
+ try{
+  browserTranslator=await prepareBrowserTranslator({allowDownload:true,onDownload:percent=>
+   message("瀏覽器韓中翻譯套件下載中："+percent+"%")});
+  message(browserTranslator?"已啟用瀏覽器翻譯。請重新標註歌詞以使用新來源。":
+   "目前瀏覽器不支援韓中本機翻譯；仍使用 MyMemory。");
+ }finally{button.disabled=false;}
+});
 function enhanceLine(parts,tokens=[],source=parts.map(p=>p.text).join("")){
  parts=applyGrammarGlosses(parts,tokens,source);
  // Recover full eojeols from Garu rather than translating detached suffixes.
@@ -196,7 +209,7 @@ async function render(){
   // Even with Chinese subtitles hidden, its meaning guides disambiguation.
   loadingDetail.textContent="先翻譯完整韓文句子…";
   const lineResult=await translateLines(koreanLines,{
-    provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
+    provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,browserTranslator,
     onProgress:({attempted,total})=>{
       if(!controller.signal.aborted&&serial===renderSerial)
         loadingDetail.textContent="整句翻譯中 "+attempted+" / "+total+"…";

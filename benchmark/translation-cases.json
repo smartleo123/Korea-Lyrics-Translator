@@ -1,0 +1,201 @@
+{
+  "version": 1,
+  "description": "Small manually checked representative Korean–Traditional Chinese semantic checks. User-provided excerpts, not production translation patches; keyword indicators are not reference-grade sentence metrics.",
+  "cases": [
+    {
+      "id": "pronoun-possessive",
+      "source": "난 잘 살아, 내 걱정은 낭비야",
+      "reference": "我過得很好，擔心我是浪費心力。",
+      "requiredAny": [
+        "我"
+      ],
+      "forbidden": [
+        "我生",
+        "十九世紀"
+      ]
+    },
+    {
+      "id": "different-styles",
+      "source": "우린 달라, 특별한 게 좋아",
+      "reference": "我們與眾不同，喜歡特別的東西。",
+      "requiredAny": [
+        "特別",
+        "獨特"
+      ],
+      "forbidden": [
+        "螃蟹"
+      ]
+    },
+    {
+      "id": "direct-message",
+      "source": "네가 보낸 DM을 읽고 나서 답이 없는 게",
+      "reference": "看了你傳來的私訊卻沒有回覆。",
+      "requiredAny": [
+        "私訊",
+        "訊息",
+        "DM"
+      ],
+      "forbidden": [
+        "螃蟹"
+      ]
+    },
+    {
+      "id": "my-reply",
+      "source": "내 답이야",
+      "reference": "那就是我的答覆。",
+      "requiredAny": [
+        "答",
+        "回覆"
+      ],
+      "forbidden": [
+        "我的我"
+      ]
+    },
+    {
+      "id": "style-freedom",
+      "source": "우리만의 자유로운 19's kitsch",
+      "reference": "只屬於我們、自由不羈的十九歲 Kitsch 風格。",
+      "requiredAny": [
+        "自由",
+        "風格"
+      ],
+      "forbidden": [
+        "19世紀",
+        "19 世紀",
+        "十九世紀"
+      ]
+    },
+    {
+      "id": "feed-appearance",
+      "source": "매일 너의 알고리즘에 난 떠",
+      "reference": "我每天都出現在你的演算法推薦裡。",
+      "requiredAny": [
+        "每天",
+        "每日"
+      ],
+      "forbidden": [
+        "離開"
+      ]
+    },
+    {
+      "id": "smart-because",
+      "source": "않을 거야 난 똑똑하니까",
+      "reference": "才不會呢，因為我很聰明。",
+      "requiredAny": [
+        "聰明"
+      ],
+      "forbidden": [
+        "清晰"
+      ]
+    },
+    {
+      "id": "korean-negation",
+      "source": "난 절대 끌리지 않는 것에 끌려가지 않아",
+      "reference": "我絕不會被不感興趣的事物牽著走。",
+      "requiredAny": [
+        "不",
+        "絕"
+      ],
+      "forbidden": [
+        "吸引我不喜歡"
+      ]
+    },
+    {
+      "id": "dance",
+      "source": "내가 추는 춤을 다들 따라 춰",
+      "reference": "大家都跟著跳我跳的舞。",
+      "requiredAny": [
+        "跳",
+        "舞"
+      ],
+      "forbidden": [
+        "追逐"
+      ]
+    },
+    {
+      "id": "idiom",
+      "source": "겉잡을 수 없이 올라 미친 score",
+      "reference": "分數高得驚人，完全失控。",
+      "requiredAny": [
+        "分數",
+        "得分"
+      ],
+      "forbidden": [
+        "到"
+      ]
+    },
+    {
+      "id": "outfit",
+      "source": "그런 것들엔 좀 점수를 매기지 마",
+      "reference": "別隨意替那些事物打分數。",
+      "requiredAny": [
+        "分",
+        "評"
+      ],
+      "forbidden": [
+        "螃蟹"
+      ]
+    },
+    {
+      "id": "living-way",
+      "source": "난 생겨 먹은 대로 사는 애야",
+      "reference": "我就是照自己的天性過生活的人。",
+      "requiredAny": [
+        "生活",
+        "活",
+        "過日子"
+      ],
+      "forbidden": [
+        "吃了"
+      ]
+    },
+    {
+      "id": "cannot-follow",
+      "source": "따라가진 않을 거야",
+      "reference": "我不會跟著別人的想法走。",
+      "requiredAny": [
+        "不",
+        "沒"
+      ],
+      "forbidden": [
+        "已經跟隨"
+      ]
+    },
+    {
+      "id": "do-your-way",
+      "source": "멋대로 할래",
+      "reference": "我要隨心所欲地做。",
+      "requiredAny": [
+        "隨心",
+        "照自己",
+        "任性"
+      ],
+      "forbidden": [
+        "随便"
+      ]
+    },
+    {
+      "id": "opposite-attraction",
+      "source": "반대가 끌리는 이유란 게 뭔지",
+      "reference": "相反的人為什麼會彼此吸引呢？",
+      "requiredAny": [
+        "吸引"
+      ],
+      "forbidden": [
+        "物以類聚"
+      ]
+    },
+    {
+      "id": "negation",
+      "source": "아직 이해 안 돼, 정말 이해 안 돼",
+      "reference": "我還是不懂，真的無法理解。",
+      "requiredAny": [
+        "不",
+        "無法"
+      ],
+      "forbidden": [
+        "裡面"
+      ]
+    }
+  ]
+}

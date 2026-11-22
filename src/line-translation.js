@@ -2,7 +2,9 @@
 // Verified official lyric translations are not available via a public API:
 // user-supplied licensed translations take priority.
 import {translateOne} from "./translation.js";
-export const LINE_CACHE_KEY="korean-lyrics-line-translation-v1";
+import {usableTranslation} from "./browser-translation.js";
+export const LINE_CACHE_KEY="korean-lyrics-line-translation-v2";
+const cacheKey=(provider,source)=>provider+"\u241E"+source;
 export function alignProvidedTranslations(koreanLines,provided){
  const input=String(provided||"");
  if(!input.trim())return koreanLines.map(()=>null);
@@ -21,14 +23,19 @@ export function alignProvidedTranslations(koreanLines,provided){
  }
  return out;
 }
-export async function translateLines(koreanLines,{provided="",cache={},fetcher=fetch,signal,onProgress=()=>{},limit=70}={}){
+export async function translateLines(koreanLines,{provided="",cache={},fetcher=fetch,signal,onProgress=()=>{},limit=70,browserTranslator=null}={}){
  const out=alignProvidedTranslations(koreanLines,provided);
  let translated=0,failed=0,attempted=0,consecutiveFailures=0,stopped=false;
  const unique=new Map();
  koreanLines.forEach((text,i)=>{
   if(!text.trim()||out[i])return;
-  if(typeof cache[text]==="string"&&cache[text]){
-   out[i]={text:cache[text],source:"MyMemory"};return;
+  const browserCache=cache[cacheKey("Browser",text)];
+  const memoryCache=cache[cacheKey("MyMemory",text)];
+  if(browserTranslator&&typeof browserCache==="string"&&usableTranslation(browserCache,text)){
+   out[i]={text:browserCache,source:"Browser"};return;
+  }
+  if(!browserTranslator&&typeof memoryCache==="string"&&usableTranslation(memoryCache,text)){
+   out[i]={text:memoryCache,source:"MyMemory"};return;
   }
   if(!unique.has(text))unique.set(text,[]);
   unique.get(text).push(i);
@@ -38,10 +45,20 @@ export async function translateLines(koreanLines,{provided="",cache={},fetcher=f
   if(signal?.aborted)break;
   attempted++;
   try{
-   const result=await translateOne(text,{fetcher,signal,maxChars:500});
+   let result="",provider="MyMemory";
+   if(browserTranslator){
+    try{
+     result=usableTranslation(await browserTranslator.translate(text,{signal}),text);
+     if(result)provider="Browser";
+    }catch{result="";}
+   }
+   if(!result){
+    result=usableTranslation(cache[cacheKey("MyMemory",text)],text)||
+      usableTranslation(await translateOne(text,{fetcher,signal,maxChars:500}),text);
+   }
    if(result){
-    for(const i of indices)out[i]={text:result,source:"MyMemory"};
-    cache[text]=result;translated++;consecutiveFailures=0;
+    for(const i of indices)out[i]={text:result,source:provider};
+    cache[cacheKey(provider,text)]=result;translated++;consecutiveFailures=0;
    }else {failed++;consecutiveFailures++;}
   }catch(err){if(signal?.aborted)break;failed++;consecutiveFailures++;}
   onProgress({attempted,total:pending.length,translated,failed});
