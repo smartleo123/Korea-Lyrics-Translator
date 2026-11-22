@@ -46,6 +46,42 @@ test('minimal lyrics placeholder, removed dictionary buttons, and downloadable P
 
 import {test,expect} from '@playwright/test';
 
+test('long annotated lines never squeeze the left search panel',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.route('https://api.mymemory.translated.net/**',route=>
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:'完整的中文翻譯'}}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ const before=await page.locator('.layout > .panel').first().boundingBox();
+ expect(before.width).toBeGreaterThan(400);
+ await page.locator('#title').fill('Magnetic');
+ await page.locator('#artist').fill('ILLIT');
+ const long='내 심장이 '+('너무너무길게이어지는한국어가사'.repeat(18));
+ await page.locator('#source').fill(long);
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ const left=await page.locator('.layout > .panel').first().boundingBox();
+ const right=await page.locator('.layout > .panel').nth(1).boundingBox();
+ expect(left.width).toBeGreaterThan(400);
+ expect(Math.abs(before.width-left.width)).toBeLessThan(3);
+ expect(right.x).toBeGreaterThanOrEqual(left.x+left.width);
+ expect(right.x+right.width).toBeLessThanOrEqual(1440);
+ const overflow=await page.locator('#output').evaluate(el=>el.scrollWidth>el.clientWidth);
+ expect(overflow).toBe(true);
+ await expect(page.locator('#findLyrics')).toBeVisible();
+});
+test('search panel and annotations stack cleanly on small screens',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto('/');
+ const panels=page.locator('.layout > .panel');
+ const a=await panels.first().boundingBox();
+ const b=await panels.nth(1).boundingBox();
+ expect(b.y).toBeGreaterThan(a.y+a.height);
+ expect(a.x+a.width).toBeLessThanOrEqual(390);
+ expect(b.x+b.width).toBeLessThanOrEqual(390);
+});
+
+
 test('contrastive translation distinguishes Hanja spelling from sentence meaning',async({page})=>{
  const queries=[];
  await page.route('https://api.mymemory.translated.net/**',route=>{
