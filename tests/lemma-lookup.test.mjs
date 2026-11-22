@@ -42,3 +42,11 @@ test("multiple eojeols and Unicode offsets map to the right segment",()=>{
  ],words);
  assert.deepEqual(result.filter(p=>p.lemma).map(p=>p.lemma),["밤","가다"]);
 });
+
+test("unlisted but Garu-attested predicate lemma is exposed for external dictionary lookup",()=>{
+ const out=applyGaruLemmaGlosses([{text:"노래했지만",type:"native",gloss:""}],
+  [{text:"노래하",pos:"VV",start:0,end:3},{text:"지만",pos:"EC",start:3,end:5}],{});
+ assert.equal(out[0].lemma,"노래하다");
+ assert.equal(out[0].gloss,"");
+ assert.equal(out[0].text,"노래했지만");
+});

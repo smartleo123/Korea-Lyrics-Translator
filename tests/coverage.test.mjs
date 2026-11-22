@@ -35,3 +35,8 @@ test('screenshot sample receives meaning for formerly blank Korean surfaces',()=
  assert.deepEqual(countKoreanCoverage(rows),{words:1,glossed:1,missing:0});
 });
 
+
+test('coverage counts visible meanings rather than hidden machine translation candidates',()=>{
+ const lines=[[{text:'가다',type:'native',gloss:'猜測',unverifiedGloss:true},{text:'좋다',type:'native',gloss:'好'}]];
+ assert.deepEqual(countKoreanCoverage(lines,{displayGloss:p=>p.unverifiedGloss?"":p.gloss}),{words:2,glossed:1,missing:1});
+});

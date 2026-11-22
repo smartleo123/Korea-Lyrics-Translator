@@ -12,8 +12,7 @@ export function lemmaFromMorphs(surface,morphs,glossary){
  if(lexical.length===1&&other.every(m=>GRAMMATICAL.test(m.pos||"")||m.pos==="")){
   const root=lexical[0],lemma=PREDICATE.test(root.pos)?(root.text.endsWith("다")?root.text:root.text+"다"):root.text;
   if(NOMINAL.test(root.pos)&&!surface.startsWith(root.text))return null;
-  if(Object.hasOwn(glossary,lemma)&&typeof glossary[lemma]==="string")
-   return {lemma,gloss:glossary[lemma],source:"garu-lemma"};
+  return {lemma,gloss:typeof glossary[lemma]==="string"?glossary[lemma]:"",source:"garu-lemma"};
  }
  // Nominal stem + derivational 하 + verbal/adjectival ending (e.g. 행복하다).
  // Only accept a lemma present in the dictionary; never synthesize a gloss.
@@ -21,7 +20,7 @@ export function lemmaFromMorphs(surface,morphs,glossary){
   const deriv=other.filter(m=>m.pos==="XSV"||m.pos==="XSA");
   if(deriv.length===1&&deriv[0].text==="하"&&other.every(m=>m===deriv[0]||GRAMMATICAL.test(m.pos||""))){
    const lemma=lexical[0].text+"하다";
-   if(Object.hasOwn(glossary,lemma))return {lemma,gloss:glossary[lemma],source:"garu-lemma"};
+   return {lemma,gloss:typeof glossary[lemma]==="string"?glossary[lemma]:"",source:"garu-lemma"};
   }
  }
  return null;
@@ -38,7 +37,8 @@ export function applyGaruLemmaGlosses(parts,tokens,glossary){
   const morphs=(tokens||[]).filter(t=>Number.isInteger(t.start)&&Number.isInteger(t.end)
    &&t.start<end&&t.end>start);
   const found=lemmaFromMorphs(part.text,morphs,glossary);
-  out.push(found?{...part,gloss:found.gloss,lemma:found.lemma,translationSource:found.source}:part);
+  out.push(found?{...part,lemma:found.lemma,
+   ...(found.gloss?{gloss:found.gloss,translationSource:found.source}:{})}:part);
  }
  return out;
 }

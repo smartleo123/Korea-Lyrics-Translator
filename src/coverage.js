@@ -32,14 +32,14 @@ export function completeUnannotatedKorean(parts, surfaceGlossary={}){
  flush();
  return result;
 }
-export function countKoreanCoverage(lines){
+export function countKoreanCoverage(lines,{displayGloss=part=>part.gloss||""}={}){
  let words=0,glossed=0;
  for(const parts of lines)for(const part of parts){
   if(!/[가-힣]/.test(part.text)||!(/^[가-힣]+$/.test(part.text)))continue;
   // Only count meaningful words. Particles may be intentionally unglossed.
   if(part.source==="grammar"&&part.text.length===1)continue;
   words++;
-  if(part.gloss)glossed++;
+  if(displayGloss(part))glossed++;
  }
  return {words,glossed,missing:words-glossed};
 }

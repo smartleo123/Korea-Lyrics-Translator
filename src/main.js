@@ -1,6 +1,7 @@
 import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {applyGaruLemmaGlosses} from "./lemma-lookup.js";
+import {fillDictionaryGlosses} from "./krdict.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {validateAnnotationLines} from "./annotation-validation.js";
@@ -144,7 +145,7 @@ function draw(){
     if(showChinese&&lineTranslations[i]?.text){const translation=document.createElement("div");translation.className="line-translation";translation.dataset.source=lineTranslations[i].source||"";translation.textContent=lineTranslations[i].text;translation.title=lineTranslations[i].source==="provided"?"自行提供的中文譯文":"MyMemory 機器翻譯，並非官方版本";entry.append(translation);}
     output.append(entry);
   }
-  const coverage=countKoreanCoverage(lines);
+  const coverage=countKoreanCoverage(lines,{displayGloss:displayAnnotation});
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
@@ -202,6 +203,14 @@ async function render(){
   // A Chinese rendering never proves a Chinese-character origin.
   loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
   lines=koreanLines.map(analyzeLine);
+  // Fill missing meanings from a real Korean learner dictionary before
+  // calling an approximate translation service.
+  loadingDetail.textContent="正在查詢開源韓中詞典…";
+  await fillDictionaryGlosses(lines,{signal:controller.signal,onProgress:({completed,total})=>{
+    if(!controller.signal.aborted&&serial===renderSerial)
+      loadingDetail.textContent="開源詞典查詢中 "+completed+" / "+total+"…";
+  }});
+  if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations,{contexts:koreanLines});
   // Optional, conservative contrastive hints only for missing glosses.
   // Do not overwrite any lexical or user-provided meaning.

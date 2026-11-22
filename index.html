@@ -83,7 +83,7 @@ dialog{background:#1b2740;border:1px solid #7590b6;border-radius:16px;color:whit
     <section class="help-section"><h3>搜尋與貼上歌詞</h3><p>回到簡單的 LRCLIB 搜尋：可以依歌名或歌手查找、選擇歌曲並帶入韓文歌詞，也可以自行貼上。每次最多約 20 筆搜尋結果，不保證涵蓋全部作品。</p></section>
     <section class="help-section"><h3>分析、翻譯與詞義修正</h3><p>網站預設使用 Garu 形態分析、漢字詞典與 MyMemory 免費翻譯補上中文詞義。翻譯時請留意 MyMemory 免費服務有使用額度；部分翻譯失敗時保留原文。點擊任何詞彙都可修正分類與註解，並儲存自訂詞庫。</p></section>
     <section class="help-section"><h3>準確度與隱私提醒</h3><p>此工具結合韓語形態分析與開放詞典，仍非完美語意判斷。韓語活用、縮約、詞根歧義、詞源有爭議的詞，仍需人工確認。點擊標註後預設將需要補充詞義的詞傳送至第三方 MyMemory；中文機譯不代表已驗證的詞源或字義。翻譯未回覆時僅保留原韓文。</p></section>
-  </div>
+  <p>開源詞典：<a href="https://github.com/basickorean/basickorean-vocab" target="_blank" rel="noopener noreferrer">韓國語基礎詞典衍生資料</a>（韓國國立國語院，CC BY-SA 2.0 KR）；中文詞義會以 OpenCC 轉為臺灣繁體。多義詞不自動猜測。</p></div>
 </dialog>
 <dialog id="editor"><form method="dialog" id="editForm"><h2>修正詞彙</h2><p class="hint">修改後會立即更新本首歌，並保存在這個瀏覽器的自訂詞庫。</p><label for="editWord">韓文原詞</label><input id="editWord" required><div class="form-grid"><div><label for="editType">類型</label><select id="editType"><option value="hanja">漢字詞（紅）</option><option value="native">固有詞（白）</option><option value="loan">外來語（紫）</option><option value="unknown">未確認</option></select></div><div><label for="editGloss">漢字／繁體中文義</label><input id="editGloss" placeholder="例如：容恕"></div></div><div class="actions"><button class="primary" id="saveEdit" value="save">儲存修正</button><button value="cancel">取消</button></div></form></dialog>
 <script type="module" src="./src/main.js"></script></body></html>
