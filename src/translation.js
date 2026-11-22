@@ -20,7 +20,7 @@ export function translationCandidates(lines,cache={},max=DAILY_LIMIT){
  const words=[...frequency].sort((a,b)=>b[1]-a[1]||b[0].length-a[0].length||a[0].localeCompare(b[0])).map(([word])=>word);
  return {words:words.slice(0,max),total:words.length};
 }
-export function extractTranslation(payload,source){
+export function extractTranslation(payload,source,maxChars=100){
  if(!payload||Number(payload.responseStatus)!==200)return "";
  const raw=payload.responseData?.translatedText;
  if(typeof raw!=="string")return "";
@@ -29,10 +29,10 @@ export function extractTranslation(payload,source){
  const candidate=raw.trim();
  if(!candidate||candidate===source||/^(?:MYMEMORY WARNING|QUERY LENGTH LIMIT|NO MATCH)/i.test(candidate))return "";
  if(!/[\u3400-\u9fff]/.test(candidate))return "";
- return candidate.slice(0,100);
+ return candidate.slice(0,maxChars);
 }
 // Stop waiting on a stalled public API request; propagate a user cancellation.
-export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000}={}){
+export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000,maxChars=100}={}){
  const url="https://api.mymemory.translated.net/get?"+
   new URLSearchParams({q:word,langpair:"ko|zh-TW"}).toString();
  const controller=new AbortController();
@@ -43,7 +43,7 @@ export async function translateOne(word,{fetcher=fetch,signal,timeoutMs=10000}={
  try{
   const response=await translationScheduler.run(()=>fetcher(url,{method:"GET",signal:controller.signal}),{signal:controller.signal});
   if(!response.ok)throw new Error("翻譯 API HTTP "+response.status);
-  return extractTranslation(await response.json(),word);
+  return extractTranslation(await response.json(),word,maxChars);
  }finally{
   clearTimeout(timer);
   signal?.removeEventListener("abort",abort);
