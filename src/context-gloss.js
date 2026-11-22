@@ -17,7 +17,6 @@ export const LYRIC_CONTEXT_FORMS={
  "말은":{type:"native",gloss:"話語（主題）"},
  "말을":{type:"native",gloss:"話語（受詞）"},
  "말이":{type:"native",gloss:"話語（主格）"},
- "말":{type:"native",gloss:"話／言語"},
  "거짓말":{type:"native",gloss:"謊言"},
  "거짓말은":{type:"native",gloss:"謊言（主題）"},
  "하얀":{type:"native",gloss:"潔白的"},
@@ -30,8 +29,7 @@ export const LYRIC_CONTEXT_FORMS={
  "네가":{type:"native",gloss:"你（主格）"},
  "내":{type:"native",gloss:"我的"},
  "있던":{type:"native",gloss:"曾經有過／存在過的"},
- "거야":{type:"native",gloss:"是這樣的／會如此"},
- "다":{type:"native",gloss:"全部／都"}
+ "거야":{type:"native",gloss:"是這樣的／會如此"}
 };
 const HANGUL=/^[가-힣]+$/;
 function fixRun(parts,run,forms,custom){
