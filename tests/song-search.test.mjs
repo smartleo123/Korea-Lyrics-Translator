@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchArtistTracks,groupArtistTracks,getLyricsForTrack,getKoreanLyricsWithFallback,inspectLyricLanguage,chooseKoreanLyrics,externalLyricsLinks} from '../src/song-search.js';
+import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchTrackByMetadata,normalizeSearchTitle,searchArtistTracks,groupArtistTracks,getLyricsForTrack,getKoreanLyricsWithFallback,inspectLyricLanguage,chooseKoreanLyrics,externalLyricsLinks} from '../src/song-search.js';
 test('song search keeps metadata and limits results',async()=>{
  const fetcher=async(url)=>({ok:true,json:async()=>[{id:17,trackName:'예시',artistName:'가수',albumName:'앨범',duration:120}]});
  const items=await searchTracks('예시',{fetcher});
@@ -78,4 +78,35 @@ test('ignores records with invalid song IDs',async()=>{
 test('incidental Korean text in a mostly English song is not an original Korean lyric',()=>{
  const input=['한국어 제목',...Array.from({length:15},(_,i)=>'I love you and miss you everyday number '+i)].join('\n');
  assert.equal(inspectLyricLanguage(input).isKorean,false);
+});
+
+test('metadata lookup searches title and artist in dedicated LRCLIB fields',async()=>{
+ let requested='';
+ const fetcher=async(url)=>{requested=url;return {ok:true,json:async()=>[
+  {id:420,trackName:"It's Me",artistName:'ILLIT',albumName:'Album'}
+ ]};};
+ const songs=await searchTrackByMetadata('It′s Me','ILLIT',{fetcher});
+ const params=new URL(requested).searchParams;
+ assert.equal(params.get('track_name'),"It's Me");
+ assert.equal(params.get('artist_name'),'ILLIT');
+ assert.equal(params.has('q'),false);
+ assert.equal(songs.length,1);
+ assert.equal(normalizeSearchTitle('It’s Me'),"It's Me");
+});
+test('429 response exposes rate-limit instruction and does not retry song versions',async()=>{
+ const fetcher=async()=>({ok:false,status:429,headers:{get:name=>name==='Retry-After'?'10':null}});
+ await assert.rejects(searchTracks('ILLIT',{fetcher}),/10 秒後.*429/);
+ let calls=0;
+ const track={id:55,name:"It's Me",artist:'ILLIT'};
+ await assert.rejects(getKoreanLyricsWithFallback(track,[track],{
+  fetcher:async()=>{calls++;return {ok:false,status:429,headers:{get:()=>null}};},
+  searcher:async()=>{throw Error('Search must not happen after 429');}
+ }),/429/);
+ assert.equal(calls,1);
+});
+test('search without valid title returns empty results and does not call provider',async()=>{
+ let called=0;
+ const result=await searchTrackByMetadata(' ','ILLIT',{fetcher:async()=>{called++;}});
+ assert.deepEqual(result,[]);
+ assert.equal(called,0);
 });
