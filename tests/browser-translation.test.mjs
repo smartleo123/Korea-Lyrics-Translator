@@ -13,7 +13,7 @@ test("unsupported and downloadable models are not automatically downloaded",asyn
  const api={availability:async()=> "downloadable",create:async()=>{created=true;return {translate:async()=>""}}};
  assert.equal(await prepareBrowserTranslator({api}),null);
  assert.equal(created,false);
- await prepareBrowserTranslator({api,allowDownload:true});
+ await prepareBrowserTranslator({api,allowDownload:true,userGesture:true});
  assert.equal(created,true);
 });
 test("translator sanity checks reject untranslated and fake century conversions",()=>{
