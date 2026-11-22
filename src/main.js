@@ -21,6 +21,9 @@ let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=nul
 let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 function message(s){notice.textContent=s;}
+function syncOutputTitle(){
+ $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
+}
 async function initialize(){
   message("正在載入韓語形態分析模型及漢字詞典…");
   try{
@@ -91,7 +94,7 @@ function draw(){
   }
   const coverage=countKoreanCoverage(lines);
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
-  $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
+  syncOutputTitle();
   $("download").disabled=!input.trim();$("copy").disabled=!input.trim();
 }
 function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…"){
@@ -106,6 +109,7 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("copy").disabled=isLoading;
 }
 async function render(){
+ syncOutputTitle();
  if(!initialized){message("分析器尚未就緒。");return;}
  if(translationController)translationController.abort();
  const controller=new AbortController();
@@ -200,6 +204,7 @@ async function importTrack(track,versions,button){
   $("title").value=found.track?.name||track.name;
   $("artist").value=found.track?.artist||track.artist;
   $("source").value=found.lyrics;$("providedChinese").value="";
+  syncOutputTitle();
   invalidateOutput();
   status.textContent=found.usedAlternative?"已找到其他版本的韓文歌詞，請確認內容。":"已帶入韓文歌詞，請確認內容後開始標註。";
   $("songResults").replaceChildren();$("source").focus();
@@ -300,6 +305,7 @@ $("toggleChinese").onclick=async()=>{
 };
 
 function invalidateOutput(){
+ syncOutputTitle();
  if(translationController)translationController.abort();
  renderSerial++;
  lines=[];lineTranslations=[];
@@ -316,7 +322,7 @@ $("annotate").onclick=render;
 
 $("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
 $("clear").onclick=()=>{resetSongSearch();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";render();};
-$("title").addEventListener("input",()=>{if(lines.length)$("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");});
+$("title").addEventListener("input",syncOutputTitle);
 $("download").onclick=()=>download(($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
 $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(p.gloss?"("+p.gloss+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
 $("exportDict").onclick=()=>download("korean-custom-dictionary.json",JSON.stringify(custom,null,2),"application/json");
