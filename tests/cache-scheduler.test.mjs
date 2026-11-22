@@ -44,10 +44,10 @@ test('saving the same cache twice preserves original entry timestamps',()=>{
 });
 test('aborted queued scheduler job is rejected promptly before active work completes',async()=>{
  const scheduler=createRequestScheduler({intervalMs:0});
- let release;
- const first=scheduler.run(()=>new Promise(resolve=>{release=resolve;}));
- // Wait until the first job starts.
- await new Promise(resolve=>setTimeout(resolve,5));
+ let release,signalStarted;
+ const started=new Promise(resolve=>{signalStarted=resolve;});
+ const first=scheduler.run(()=>new Promise(resolve=>{release=resolve;signalStarted();}));
+ await started;
  const controller=new AbortController();
  const queued=scheduler.run(()=>{throw Error('must never run');},{signal:controller.signal});
  controller.abort();
