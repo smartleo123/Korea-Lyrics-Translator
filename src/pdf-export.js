@@ -45,17 +45,13 @@ export async function saveAnnotatedPdf(lines,{title,showChinese=false,translatio
  // Lazy-load only when downloading; avoids slowing song search and analysis.
  const {default:html2pdf}=await import("html2pdf.js");
  const root=buildPdfContent(document,lines,{title,showChinese,translations});
- root.style.position="fixed";root.style.left="-100000px";root.style.top="0";
- document.body.append(root);
- try{
-  await document.fonts.ready;
-  await html2pdf().set({
-   margin:0,
-   filename:pdfName(title),
-   image:{type:"jpeg",quality:.96},
-   html2canvas:{scale:2,backgroundColor:"#10151e",useCORS:true,scrollX:0,scrollY:0},
-   jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
-   pagebreak:{mode:["css","legacy"],avoid:".pdf-lyric-entry"}
-  }).from(root).save();
- }finally{root.remove();}
+ await document.fonts.ready;
+ await html2pdf().set({
+  margin:0,
+  filename:pdfName(title),
+  image:{type:"jpeg",quality:.96},
+  html2canvas:{scale:2,backgroundColor:"#10151e",useCORS:true,scrollX:0,scrollY:0},
+  jsPDF:{unit:"mm",format:"a4",orientation:"portrait"},
+  pagebreak:{mode:["css","legacy"],avoid:".pdf-lyric-entry"}
+ }).from(root).save();
 }
