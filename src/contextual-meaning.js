@@ -45,13 +45,15 @@ export function selectContextCandidates(lines,rows,{max=12}={}){
   for(let j=0;j<parts.length;j++){
    const p=parts[j];
    if(!HANGUL.test(p.text)||p.source==="custom"||p.source==="grammar"||p.type==="loan")continue;
-   if(p.text.length<2)continue;
+   // Single-syllable particles are excluded by their morphology source;
+   // independent pronouns may be a single Hangul syllable.
+   if(p.text.length<1)continue;
    // Only try a representative instance of each Korean surface in context.
    const reduced=withoutPart(parts,j);
    if(!reduced||reduced===source||!/[가-힣]/.test(reduced))continue;
    // Phrases with no lexical gloss or machine-only gloss are highest priority,
    // but even an attested Hanja spelling can have a different contextual sense.
-   const priority=p.translationSource==="MyMemory"?0:!p.gloss?1:p.type==="hanja"?2:3;
+   const priority=(p.translationSource==="MyMemory"||/[／/]/.test(p.gloss||""))?0:!p.gloss?1:p.type==="hanja"?2:3;
    const key=source+"|"+j;
    if(seen.has(key))continue;seen.add(key);
    candidates.push({i,j,source,reduced,full:whole,priority});
@@ -69,13 +71,14 @@ export async function enrichContextGlosses(lines,rows,{
   const p=lines[c.i]?.[c.j];
   if(!p)continue;
   const key=c.source+"|"+c.j+"|"+c.full;
-  let result=cache[key];
+  let result;
+  try{result=cache[key]?JSON.parse(cache[key]):null;}catch{result=null;}
   if(!result){
    attempted++;
    try{
     const translated=await translateOne(c.reduced,{fetcher,signal,maxChars:500});
     result=deriveContextGloss(c.full,translated)||{gloss:"",confidence:0};
-    cache[key]=result;
+    cache[key]=JSON.stringify(result);
    }catch(e){
     if(signal?.aborted)break;
     onProgress({attempted,total:candidates.length,matched});
@@ -86,6 +89,7 @@ export async function enrichContextGlosses(lines,rows,{
    // Keep Hanja etymology; a semantic meaning is a separate field.
    if(p.type==="hanja"){
     p.contextGloss=result.gloss;
+    p.contextSource="sentence-contrast";
    }else{
     p.gloss=result.gloss;
     p.translationSource="sentence-contrast";
