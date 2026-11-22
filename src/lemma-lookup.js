@@ -35,7 +35,7 @@ export function applyGaruLemmaGlosses(parts,tokens,glossary){
   }
   // Garu offsets count Unicode code points; use the unmodified surface positions.
   const morphs=(tokens||[]).filter(t=>Number.isInteger(t.start)&&Number.isInteger(t.end)
-   &&t.start<end&&t.end>start);
+   &&t.start>=start&&t.end<=end&&t.start<t.end);
   const found=lemmaFromMorphs(part.text,morphs,glossary);
   out.push(found?{...part,lemma:found.lemma,
    ...(found.gloss?{gloss:found.gloss,translationSource:found.source}:{})}:part);

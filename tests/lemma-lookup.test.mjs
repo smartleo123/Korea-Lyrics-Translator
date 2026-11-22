@@ -50,3 +50,14 @@ test("unlisted but Garu-attested predicate lemma is exposed for external diction
  assert.equal(out[0].gloss,"");
  assert.equal(out[0].text,"노래했지만");
 });
+
+test("morphology from an adjacent or crossing surface cannot fabricate a lemma",()=>{
+ const parts=[{text:"가",type:"native",gloss:""},{text:"고",type:"native",gloss:""}];
+ const out=applyGaruLemmaGlosses(parts,[
+  {text:"가",pos:"VV",start:0,end:2},
+  {text:"고",pos:"EC",start:1,end:2}
+ ],words);
+ assert.equal(out[0].lemma,undefined);
+ assert.equal(out[0].gloss,"");
+ assert.equal(out[1].lemma,undefined);
+});
