@@ -61,6 +61,32 @@ export function selectContextCandidates(lines,rows,{max=12}={}){
  }
  return candidates.sort((a,b)=>a.priority-b.priority||a.i-b.i||a.j-b.j).slice(0,max);
 }
+export function displayAnnotation(part){
+ const origin=String(part.gloss||"");
+ const meaning=String(part.contextGloss||"");
+ return meaning&&meaning!==origin?[origin,meaning].filter(Boolean).join(" · "):origin;
+}
+function applyResult(part,result){
+ if(!result?.gloss)return false;
+ if(part.type==="hanja"){
+  part.contextGloss=result.gloss;
+  part.contextSource="sentence-contrast";
+ }else{
+  part.gloss=result.gloss;
+  part.translationSource="sentence-contrast";
+ }
+ return true;
+}
+export function restoreCachedContextGlosses(lines,rows,cache){
+ for(const c of selectContextCandidates(lines,rows,{max:100})){
+  const key=c.source+"|"+c.j+"|"+c.full;
+  try{
+   const result=JSON.parse(cache[key]||"null");
+   if(result)applyResult(lines[c.i][c.j],result);
+  }catch{}
+ }
+ return lines;
+}
 export async function enrichContextGlosses(lines,rows,{
  fetcher=fetch,signal,cache={},max=12,onProgress=()=>{}
 }={}){
@@ -85,17 +111,7 @@ export async function enrichContextGlosses(lines,rows,{
     continue;
    }
   }
-  if(result.gloss){
-   // Keep Hanja etymology; a semantic meaning is a separate field.
-   if(p.type==="hanja"){
-    p.contextGloss=result.gloss;
-    p.contextSource="sentence-contrast";
-   }else{
-    p.gloss=result.gloss;
-    p.translationSource="sentence-contrast";
-   }
-   matched++;
-  }
+  if(applyResult(p,result))matched++;
   onProgress({attempted,total:candidates.length,matched});
  }
  return {attempted,total:candidates.length,matched};
