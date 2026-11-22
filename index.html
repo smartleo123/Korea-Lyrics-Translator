@@ -25,6 +25,25 @@ dialog{background:#1b2740;border:1px solid #7590b6;border-radius:16px;color:whit
 .help-content{padding:24px 26px}.help-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px}.help-heading h2{margin:0;font-size:23px}.help-close{padding:6px 12px;font-size:14px}
 .help-section{border-top:1px solid #3a4b66;padding:17px 0 5px}.help-section h3{font-size:16px;margin:0 0 7px;color:#eef4ff}.help-section p{font-size:14px;line-height:1.85;color:#bac8df;margin:0 0 12px}
 @media(max-width:480px){.site-header{align-items:flex-start;gap:10px}.site-header h1{font-size:clamp(26px,8vw,36px)}.help-button{padding:8px 10px;font-size:13px;white-space:nowrap}.help-content{padding:18px 16px}}
+
+.output-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#readerDialog{position:fixed;inset:0;width:100vw;max-width:none;height:100vh;height:100dvh;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:#111a2b;color:#f7f9ff;overflow:hidden}
+#readerDialog::backdrop{background:#000e}
+.reader-shell{height:100%;display:flex;flex-direction:column}
+.reader-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px clamp(14px,3vw,45px);background:#1b2a44;border-bottom:1px solid #4b6384;flex-shrink:0}
+.reader-toolbar h2{font-size:clamp(18px,2.3vw,25px);margin:0}
+.reader-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.reader-controls button{padding:8px 12px;white-space:nowrap}
+#readerFontSize{font-size:13px;color:#b6c9e8;min-width:35px;text-align:center}
+.reader-scroll{overflow:auto;flex:1;overscroll-behavior:contain;padding:clamp(20px,4vw,62px) clamp(16px,6vw,100px)}
+.reader-lyrics{font-size:var(--reader-font-size,30px);line-height:1.95;min-height:0;overflow:visible;scrollbar-gutter:auto;max-width:1100px;margin:0 auto}
+.reader-lyrics .lyric-entry{width:100%;min-width:0;margin-bottom:.25em}
+.reader-lyrics .lyric-line{white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;width:100%;min-width:0;margin-bottom:0}
+.reader-lyrics .line-translation{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.65em;margin-bottom:.55em}
+.reader-lyrics .gloss{font-size:.72em}
+.reader-lyrics .word{cursor:default}
+.reader-lyrics .word:hover{background:none}
+@media(max-width:480px){.reader-toolbar{gap:9px}.reader-toolbar h2{flex-basis:100%}.reader-controls{width:100%;justify-content:space-between;gap:5px}.reader-controls button{padding:8px}.output-controls{width:100%}}
 </style></head><body><main><header class="site-header"><div class="header-title"><div class="eyebrow">KOREA LYRICS TRANSLATOR</div><h1>韓語歌詞詞源標註器</h1></div><button type="button" id="helpOpen" class="help-button" aria-haspopup="dialog" aria-controls="helpDialog">使用說明</button></header>
 <div class="layout">
 <section class="panel"><h2>01　貼上韓文歌詞</h2><label for="title">歌曲名稱</label><input id="title" placeholder="It′s Me" maxlength="120">
@@ -36,10 +55,26 @@ dialog{background:#1b2740;border:1px solid #7590b6;border-radius:16px;color:whit
 <details class="optional-translation"><summary>已有官方或授權的中文歌詞？可貼在這裡優先使用</summary><label for="providedChinese">自行提供的中文翻譯（依韓文逐行對齊）</label><textarea id="providedChinese" spellcheck="false" placeholder="若已有授權可使用的中文譯文，依韓文的行序貼在這裡。沒有的行將由 MyMemory 補譯。"></textarea><p class="hint">只有你自行提供的內容才會被當作優先譯文，網站不會宣稱未驗證的網路文字是官方版本。</p></details>
 <div class="actions"><button class="primary" id="annotate">自動標註歌詞</button><button id="sample">載入短句範例</button><button id="clear">清空</button></div><div id="notice" role="status"></div>
 </section>
-<section class="panel"><div class="output-heading"><h2 id="outputTitle">02　歌詞標註結果</h2><button id="toggleChinese" type="button" aria-pressed="false">顯示逐行中文翻譯</button></div><div class="legend"><span class="hanja">● 漢字詞・紅</span><span class="native">● 固有詞・白</span><span class="loan">● 外來語・紫</span></div><div id="loading" class="loading-state" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><strong>歌詞翻譯中</strong><small id="loadingDetail">正在分析詞彙與取得中文註解…</small></div><div id="output" class="results"><p class="hint">輸入歌詞後按「自動標註歌詞」，結果會出現在這裡。</p></div><div id="stats" class="status" aria-live="polite"></div>
+<section class="panel"><div class="output-heading"><h2 id="outputTitle">02　歌詞標註結果</h2><div class="output-controls"><button id="toggleChinese" type="button" aria-pressed="false">顯示逐行中文翻譯</button><button id="openReader" type="button" disabled aria-haspopup="dialog" aria-controls="readerDialog">⛶ 全螢幕閱讀</button></div></div><div class="legend"><span class="hanja">● 漢字詞・紅</span><span class="native">● 固有詞・白</span><span class="loan">● 外來語・紫</span></div><div id="loading" class="loading-state" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><strong>歌詞翻譯中</strong><small id="loadingDetail">正在分析詞彙與取得中文註解…</small></div><div id="output" class="results"><p class="hint">輸入歌詞後按「自動標註歌詞」，結果會出現在這裡。</p></div><div id="stats" class="status" aria-live="polite"></div>
 <div class="actions"><button id="download" disabled>下載標註 HTML</button><button id="downloadPdf" type="button" disabled>下載 PDF</button><button id="copy" disabled>複製標註文字</button></div>
 </section>
 </div></main>
+<dialog id="readerDialog" aria-labelledby="readerTitle">
+ <div class="reader-shell">
+  <div class="reader-toolbar">
+   <h2 id="readerTitle">歌詞閱讀模式</h2>
+   <div class="reader-controls">
+    <button id="readerSmaller" type="button" aria-label="縮小歌詞字體">A−</button>
+    <span id="readerFontSize" aria-live="polite">30px</span>
+    <button id="readerLarger" type="button" aria-label="放大歌詞字體">A＋</button>
+    <button id="closeReader" type="button">退出全螢幕</button>
+   </div>
+  </div>
+  <div class="reader-scroll">
+   <div id="readerLyrics" class="results reader-lyrics" aria-label="放大後的歌詞標註"></div>
+  </div>
+ </div>
+</dialog>
 <dialog id="helpDialog" aria-labelledby="helpTitle">
   <div class="help-content">
     <div class="help-heading"><h2 id="helpTitle">使用說明</h2><form method="dialog"><button class="help-close" type="submit" aria-label="關閉使用說明">關閉</button></form></div>
