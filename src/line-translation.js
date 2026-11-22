@@ -38,7 +38,7 @@ export async function translateLines(koreanLines,{provided="",cache={},fetcher=f
   if(signal?.aborted)break;
   attempted++;
   try{
-   const result=await translateOne(text,{fetcher,signal});
+   const result=await translateOne(text,{fetcher,signal,maxChars:500});
    if(result){
     for(const i of indices)out[i]={text:result,source:"MyMemory"};
     cache[text]=result;translated++;consecutiveFailures=0;
