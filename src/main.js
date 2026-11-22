@@ -2,6 +2,7 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
+import {resolveLyricSurface} from "./context-gloss.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -91,6 +92,9 @@ async function initialize(){
   }
 }
 function enhanceLine(parts,context){
+ // Resolve attested whole Korean inflections BEFORE rendering dictionary Hanja
+ // candidates or querying MyMemory for isolated morphological fragments.
+ parts=resolveLyricSurface(parts,{custom});
  parts=completeKnownCompoundSuffixes(completeUnannotatedKorean(parts,LYRIC_SURFACE_GLOSSARY));
  for(const part of parts){
   if(part.type==="ambiguous"){
