@@ -58,8 +58,11 @@ export async function searchTracks(query,{fetcher=fetch,signal}={}){
  if(!q)return [];
  return runSearch({q},{fetcher,signal});
 }
+export function normalizeSearchTitle(title){
+ return String(title||"").trim().replace(/[′’‘＇ʼ]/g,"'");
+}
 export async function searchTrackByMetadata(track,artist="",{fetcher=fetch,signal}={}){
- const title=String(track||"").trim(),name=String(artist||"").trim();
+ const title=normalizeSearchTitle(track),name=String(artist||"").trim();
  if(!title)return [];
  // Avoid missing a recording because the first 20 generic search hits
  // happened to belong to other artists.
