@@ -1,3 +1,27 @@
+test('minimal lyrics placeholder, removed dictionary buttons, and downloadable PDF',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:'愛你'}}}));
+ await page.goto('/');
+ await expect(page.locator('#source')).toHaveAttribute('placeholder','把韓文歌詞貼在這裡');
+ await expect(page.locator('#exportDict')).toHaveCount(0);
+ await expect(page.locator('#importDict')).toHaveCount(0);
+ await expect(page.locator('#downloadPdf')).toBeDisabled();
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#title').fill('測試歌曲');
+ await page.locator('#source').fill('사랑해\\n\\n안녕');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#downloadPdf')).toBeEnabled();
+ const downloadPromise=page.waitForEvent('download',{timeout:45000});
+ await page.locator('#downloadPdf').click();
+ const file=await downloadPromise;
+ expect(file.suggestedFilename()).toBe('測試歌曲-詞源對照.pdf');
+ const fs=await import('node:fs/promises');
+ const pdf=await fs.readFile(await file.path());
+ expect(pdf.subarray(0,5).toString('ascii')).toBe('%PDF-');
+ expect(pdf.length).toBeGreaterThan(1000);
+});
+
 import {test,expect} from '@playwright/test';
 test.beforeEach(async({page})=>{
  page.on('pageerror',err=>console.log('BROWSER PAGE ERROR:',err.stack||err.message));
