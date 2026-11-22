@@ -66,13 +66,14 @@ export function displayAnnotation(part){
  return meaning&&meaning!==origin?[origin,meaning].filter(Boolean).join(" · "):origin;
 }
 function applyResult(part,result){
- if(!result?.gloss)return false;
+ if(!result?.gloss||!(result.confidence>=.65))return false;
  if(part.type==="hanja"){
   part.contextGloss=result.gloss;
   part.contextSource="sentence-contrast";
  }else{
   part.gloss=result.gloss;
   part.translationSource="sentence-contrast";
+  part.unverifiedGloss=false;
  }
  return true;
 }
