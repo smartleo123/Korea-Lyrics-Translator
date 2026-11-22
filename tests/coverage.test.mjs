@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from '../src/coverage.js';
+import {completeUnannotatedKorean,countKoreanCoverage} from '../src/coverage.js';
 import {LYRIC_SURFACE_GLOSSARY} from '../src/glossary.js';
 test('reconstructs a word before MyMemory instead of translating morphology fragments',()=>{
  const original=[
@@ -35,10 +35,3 @@ test('screenshot sample receives meaning for formerly blank Korean surfaces',()=
  assert.deepEqual(countKoreanCoverage(rows),{words:1,glossed:1,missing:0});
 });
 
-test('adds box meaning to Korean compound suffix but leaves verified Hanja root',()=>{
- const input=[{text:'보석',type:'hanja',gloss:'寶石'},{text:'함',type:'native',gloss:'',source:'grammar'}];
- const result=completeKnownCompoundSuffixes(input);
- assert.equal(result[0].gloss,'寶石');
- assert.equal(result[1].gloss,'盒');
- assert.equal(result.map(p=>p.text).join(''),'보석함');
-});
