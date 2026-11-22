@@ -54,3 +54,9 @@ test('deduplicated contextual candidates skip isolated one-word sentences',()=>{
  const rows=[{text:'遠'},{text:'因為很遠，現在就'}];
  assert.equal(selectContextCandidates(lines,rows).every(x=>x.i===1),true);
 });
+test('weak contrastive evidence must not overwrite an existing meaning',async()=>{
+ const line=[tok('사랑','native','愛',{translationSource:'lexicon'}),tok(' ','plain'),tok('노래')];
+ const cache={'사랑 노래|0|我喜歡這首歌':JSON.stringify({gloss:'不相干',confidence:.2})};
+ restoreCachedContextGlosses([line],[{text:'我喜歡這首歌'}],cache);
+ assert.equal(line[0].gloss,'愛');
+});
