@@ -30,6 +30,10 @@ export function classifyHeadword(word,pos,hanjaMap,curated={}) {
   if(curated[word])return {...curated[word],source:curated[word].source==="custom"?"custom":"curated"};
   if(/^[a-z]/i.test(word)||pos==="SL")return {type:"loan",gloss:"",source:"pos"};
   if(pos&&(GRAMMAR.test(pos)||NATIVE_POS.has(pos)))return {type:"native",gloss:"",source:"pos"};
+  // A homographic Hanja dictionary entry is not proof for verbs, adjectives,
+  // conjugated endings or unanalysed lyric text. Prefer missing a Hanja
+  // annotation over inventing a false etymology.
+  if(!NOUN_POS.has(pos))return {type:pos?"native":"unknown",gloss:"",source:pos?"pos-inferred":"no-analysis"};
   const options=hanjaMap.get(word)||[];
   if(options.length===1)return {type:"hanja",gloss:options[0],source:"dictionary"};
   if(options.length>1)return {type:"ambiguous",gloss:"",choices:options,source:"dictionary"};
@@ -49,11 +53,13 @@ export function annotateSpan(span,hanjaMap,curated={}) {
  const pos=main?.pos;
  // A complete morpheme with grammatical POS must not be converted to Hanja.
  if(pos&&(GRAMMAR.test(pos)||NATIVE_POS.has(pos)))return [{text:surface,type:"native",gloss:"",source:"pos"}];
- const exact=classifyHeadword(surface,pos,hanjaMap,curated);
+ const conjugated=morphs.some(m=>/^(VV|VA|VX|VCP|VCN|E)/.test(m.pos||""));
+ // A lexicon hit for the written surface does not overrule verbal morphology.
+ const exact=classifyHeadword(surface,conjugated?"VV":pos,hanjaMap,curated);
  if(exact.type==="hanja"||exact.type==="ambiguous"||exact.source==="curated")
    return [{text:surface,...exact}];
  // Use Garu morphs to distinguish nominal roots and particle/endings.
- const roots=morphs.filter(m=>!GRAMMAR.test(m.pos||"")&&/^[가-힣]+$/.test(String(m.text||"")))
+ const roots=morphs.filter(m=>NOUN_POS.has(m.pos)&&/^[가-힣]+$/.test(String(m.text||"")))
   .map(m=>({text:m.text,pos:m.pos})).filter(m=>surface.startsWith(m.text))
   .sort((a,b)=>b.text.length-a.text.length);
  for(const root of roots){
