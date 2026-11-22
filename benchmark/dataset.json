@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "language_pair": "ko-zh-Hant",
+  "provenance": "Original short educational examples; manually annotated toy gold for testing the pipeline, not a statistical model ranking.",
+  "cases": [
+    {
+      "id": "word-order",
+      "source": [
+        "나는",
+        "학교에",
+        "가요"
+      ],
+      "target": [
+        "我",
+        "去",
+        "學校"
+      ],
+      "sure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "possible": [],
+      "tags": [
+        "reordering"
+      ]
+    },
+    {
+      "id": "adverbs",
+      "source": [
+        "오늘은",
+        "정말",
+        "추워요"
+      ],
+      "target": [
+        "今天",
+        "真的",
+        "很冷"
+      ],
+      "sure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "possible": [],
+      "tags": [
+        "inflection"
+      ]
+    },
+    {
+      "id": "pronouns",
+      "source": [
+        "나는",
+        "너를",
+        "다시",
+        "만났어"
+      ],
+      "target": [
+        "我",
+        "再次",
+        "見到",
+        "你"
+      ],
+      "sure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "possible": [],
+      "tags": [
+        "reordering"
+      ]
+    },
+    {
+      "id": "coordination",
+      "source": [
+        "책을",
+        "읽고",
+        "음악을",
+        "들어요"
+      ],
+      "target": [
+        "讀",
+        "書",
+        "並",
+        "聽",
+        "音樂"
+      ],
+      "sure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "possible": [
+        [
+          1,
+          2
+        ]
+      ],
+      "tags": [
+        "connective"
+      ]
+    },
+    {
+      "id": "weather",
+      "source": [
+        "눈이",
+        "와요"
+      ],
+      "target": [
+        "下",
+        "雪"
+      ],
+      "sure": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "possible": [],
+      "tags": [
+        "idiom"
+      ]
+    },
+    {
+      "id": "request",
+      "source": [
+        "문을",
+        "열어",
+        "주세요"
+      ],
+      "target": [
+        "請",
+        "把",
+        "門",
+        "打開"
+      ],
+      "sure": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          0
+        ]
+      ],
+      "possible": [
+        [
+          0,
+          1
+        ]
+      ],
+      "tags": [
+        "politeness"
+      ]
+    },
+    {
+      "id": "negation",
+      "source": [
+        "밤새",
+        "잠을",
+        "못",
+        "잤어"
+      ],
+      "target": [
+        "整夜",
+        "沒",
+        "能",
+        "睡"
+      ],
+      "sure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "possible": [
+        [
+          2,
+          2
+        ]
+      ],
+      "tags": [
+        "negation"
+      ]
+    },
+    {
+      "id": "repetition",
+      "source": [
+        "나는",
+        "너를",
+        "보고",
+        "너를",
+        "기억해"
+      ],
+      "target": [
+        "我",
+        "看見",
+        "你",
+        "並",
+        "記得",
+        "你"
+      ],
+      "sure": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "possible": [
+        [
+          2,
+          3
+        ]
+      ],
+      "tags": [
+        "repeat"
+      ]
+    }
+  ]
+}

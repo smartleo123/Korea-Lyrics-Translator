@@ -1,0 +1,49 @@
+name: Alignment benchmark
+on:
+  push:
+    branches: [main]
+    paths: ['benchmark/**', '.github/workflows/alignment-benchmark.yml']
+  pull_request:
+    paths: ['benchmark/**', '.github/workflows/alignment-benchmark.yml']
+  workflow_dispatch:
+    inputs:
+      live_gemini:
+        description: 'Explicitly call Gemini API using repository secret'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Test scoring and adapter contracts (no API)
+        run: python -m unittest discover -s benchmark -p 'test_*.py' -v
+      - name: Validate benchmark dataset
+        run: python benchmark/runner.py --validate-only
+  opt-in-live-gemini:
+    if: github.event_name == 'workflow_dispatch' && inputs.live_gemini == true
+    needs: offline
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check optional API secret
+        run: test -n "$GEMINI_API_KEY" || { echo 'Missing repository GEMINI_API_KEY secret'; exit 1; }
+      - name: Real Gemini alignment (may consume quota)
+        run: python benchmark/runner.py --provider gemini --output benchmark/results/gemini.json
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gemini-alignment-benchmark
+          path: benchmark/results/
+          if-no-files-found: ignore
