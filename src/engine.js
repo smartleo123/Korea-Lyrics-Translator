@@ -27,7 +27,8 @@ export function segmentByOffsets(text,tokens=[]) {
   return result;
 }
 export function classifyHeadword(word,pos,hanjaMap,curated={}) {
-  if(curated[word])return {...curated[word],source:curated[word].source==="custom"?"custom":"curated"};
+  if(curated[word]&&(curated[word].source==="custom"||curated[word].type!=="hanja"||NOUN_POS.has(pos)))
+  return {...curated[word],source:curated[word].source==="custom"?"custom":"curated"};
   if(/^[a-z]/i.test(word)||pos==="SL")return {type:"loan",gloss:"",source:"pos"};
   if(pos&&(GRAMMAR.test(pos)||NATIVE_POS.has(pos)))return {type:"native",gloss:"",source:"pos"};
   // A homographic Hanja dictionary entry is not proof for verbs, adjectives,
@@ -59,8 +60,7 @@ export function annotateSpan(span,hanjaMap,curated={}) {
  }
  const conjugated=morphs.some(m=>/^(VV|VA|VX|VCP|VCN|E)/.test(m.pos||""));
  // A lexicon hit for the written surface does not overrule verbal morphology.
- const exact=classifyHeadword(surface,conjugated?"VV":pos,hanjaMap,
-  conjugated?Object.fromEntries(Object.entries(curated).filter(([,v])=>v.type!=="hanja"||v.source==="custom")):curated);
+ const exact=classifyHeadword(surface,conjugated?"VV":pos,hanjaMap,curated);
  if(exact.type==="hanja"||exact.type==="ambiguous"||exact.source==="curated")
    return [{text:surface,...exact}];
  // Use Garu morphs to distinguish nominal roots and particle/endings.
