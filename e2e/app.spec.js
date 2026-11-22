@@ -460,3 +460,19 @@ test('annotation UI contains neither local AI alignment nor uncertainty prefixes
  await expect(page.locator('#output')).not.toContainText('(?');
  await expect(page.locator('#stats')).not.toContainText('（?）');
 });
+
+test('free Korean dictionary fills missing words without overwriting Hanja',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
+  responseStatus:200,responseData:{translatedText:'我看見一隻松鼠'}
+ }}));
+ await page.route('https://cdn.jsdelivr.net/gh/basickorean/**',route=>{
+  return route.fulfill({json:{'다람쥐':[[['松鼠','一種小動物']]]}});
+ });
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('다람쥐');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#output')).toContainText('다람쥐(松鼠)');
+ await expect(page.locator('#runLocalAI')).toHaveCount(0);
+});
