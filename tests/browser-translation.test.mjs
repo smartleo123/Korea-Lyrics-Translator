@@ -22,3 +22,19 @@ test("translator sanity checks reject untranslated and fake century conversions"
  assert.equal(usableTranslation("無對應","안녕"),"無對應");
  assert.equal(usableTranslation("你好","안녕"),"你好");
 });
+
+test("direct Annotate click invokes create before asynchronous availability",async()=>{
+ let available=false,created=false;
+ const api={availability:async()=>{available=true;return "downloadable";},
+  create:()=>{created=true;return Promise.resolve({translate:async()=> "你好"});}};
+ const task=prepareBrowserTranslator({api,allowDownload:true,userGesture:true});
+ assert.equal(created,true);
+ assert.equal(available,false);
+ assert.ok(await task);
+});
+test("non-gesture initialization does not initiate language package download",async()=>{
+ let calls=0;
+ const api={availability:async()=> "downloadable",create:async()=>{calls++;return {translate:async()=> "你好"}}};
+ assert.equal(await prepareBrowserTranslator({api}),null);
+ assert.equal(calls,0);
+});

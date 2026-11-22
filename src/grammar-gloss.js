@@ -10,7 +10,9 @@ const SURFACES=new Map([
  ["안",{gloss:"不",lemma:"안",type:"MAG"}],
  ["수",{gloss:"可能",lemma:"수",type:"NNB"}],
  ["내",{gloss:"我的",lemma:"나",type:"POSSESSIVE"}],
- ["네",{gloss:"你的",lemma:"너",type:"POSSESSIVE"}]
+ ["네",{gloss:"你的",lemma:"너",type:"POSSESSIVE"}],
+ ["말고",{gloss:"不要",lemma:"말다",type:"NEGATIVE-AUX"}],
+ ["돼",{gloss:"行",lemma:"되다",type:"NEGATED-PREDICATE"}]
 ]);
 function nearby(tokens,start,end,dir){
  const sorted=tokens.filter(t=>Number.isInteger(t.start)&&Number.isInteger(t.end))
@@ -29,6 +31,14 @@ function grammarMatch(part,tokens,spanStart,spanEnd,source){
  const previous=nearby(tokens,spanStart,spanEnd,-1);
  const next=nearby(tokens,spanStart,spanEnd,1);
  const pos=local.map(t=>t.pos||"");
+ if(rule.type==="NEGATIVE-AUX"){
+  if(/지\s*$/u.test(source.slice(0,spanStart))&&
+     (pos.includes("VX")||pos.includes("VV")||pos.includes("EC")||!pos.length))return rule;
+ }
+ if(rule.type==="NEGATED-PREDICATE"){
+  if(/(?:^|\s)안\s+$/u.test(source.slice(0,spanStart))&&
+    (pos.some(x=>PREDICATE.test(x))||!pos.length))return rule;
+ }
  if(rule.type==="POSSESSIVE"){
   // Possessive determiners before an attested noun are not the pronoun "I".
   if(next&&/^(?:NNG|NNP|NNB|XR)$/.test(next.pos||""))return rule;

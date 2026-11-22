@@ -515,7 +515,7 @@ function assertNoDeletedRequests(requests){
  }
 }
 
-test('opt-in browser sentence translator overrides MyMemory without leaking a key',async({page})=>{
+test('automatic browser sentence translator overrides MyMemory without a second button',async({page})=>{
  await page.addInitScript(()=>{
   window.Translator={
    availability:async()=> "available",
@@ -531,8 +531,7 @@ test('opt-in browser sentence translator overrides MyMemory without leaking a ke
  await page.route('https://cdn.jsdelivr.net/gh/basickorean/**',route=>route.fulfill({json:{}}));
  await page.goto('/');
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
- await page.locator('#enableBrowserTranslator').click();
- await expect(page.locator('#notice')).toContainText('已啟用瀏覽器翻譯');
+ await expect(page.locator('#enableBrowserTranslator')).toHaveCount(0);
  await page.locator('#source').fill('자유를 좋아해');
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});

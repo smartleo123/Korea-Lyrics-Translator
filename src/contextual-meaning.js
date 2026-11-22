@@ -64,7 +64,8 @@ export function selectContextCandidates(lines,rows,{max=12}={}){
 // Question-mark-prefixed outputs indicate that a provider could not resolve the meaning.
 export function readableGloss(value){
  const text=String(value||"").trim().replace(/^≈/,"").trim();
- return /^[?？]/u.test(text)? "":text;
+ if(/^[?？]/u.test(text)||/(?:無對應詞彙|无对应词汇|沒有對應|没有对应|未找到翻譯|無法翻譯)/u.test(text))return "";
+ return text;
 }
 export function displayAnnotation(part){
  const origin=part.unverifiedGloss?"":readableGloss(part.gloss);

@@ -3,13 +3,17 @@
 export const LANGUAGE_PAIR=Object.freeze({sourceLanguage:"ko",targetLanguage:"zh-Hant"});
 let readyTranslator;
 export async function prepareBrowserTranslator({
- api=globalThis.Translator,allowDownload=false,onDownload=()=>{}
+ api=globalThis.Translator,allowDownload=false,userGesture=false,onDownload=()=>{}
 }={}){
  if(readyTranslator&&api===globalThis.Translator)return readyTranslator;
  if(!api||typeof api.availability!=="function"||typeof api.create!=="function")return null;
- let availability;
- try{availability=await api.availability({...LANGUAGE_PAIR});}catch{return null;}
- if(availability==="unavailable"||(!allowDownload&&availability!=="available"))return null;
+ // In a direct user click, call create synchronously before the first await:
+ // a downloadable Chrome language pack requires transient user activation.
+ if(!userGesture){
+  let availability;
+  try{availability=await api.availability({...LANGUAGE_PAIR});}catch{return null;}
+  if(availability!=="available")return null;
+ }
  try{
   const translator=await api.create({
    ...LANGUAGE_PAIR,

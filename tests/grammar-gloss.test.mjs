@@ -66,3 +66,24 @@ test("possessive Korean determiner must be followed by a noun",()=>{
   [{text:"내",pos:"NNG",start:0,end:1}],"내");
  assert.equal(other[0].gloss,"河流");
 });
+
+test("productive negative connector is not a homographic noun",()=>{
+ const source="참지 말고 날 불러줘";
+ const ts=tokens(source,[["참지","VV"],["말고","VX"],["날","NP"],["불러줘","VV"]]);
+ const parts=[{text:"참지",type:"native",gloss:"忍住"},{text:" ",type:"plain"},
+  {text:"말고",type:"hanja",gloss:"卷"},{text:" ",type:"plain"},
+  {text:"날",type:"native",gloss:"我"},{text:" ",type:"plain"},
+  {text:"불러줘",type:"native",gloss:"叫我"}];
+ assert.equal(applyGrammarGlosses(parts,ts,source)[2].gloss,"不要");
+});
+test("negated predicate does not mean a positive change of state",()=>{
+ const source="오늘이 지나면 안 돼";
+ const ts=tokens(source,[["오늘이","NNG"],["지나면","VV"],["안","MAG"],["돼","VV"]]);
+ const parts=[{text:"오늘이 지나면 ",type:"native"},{text:"안",type:"native",gloss:"不"},
+  {text:" ",type:"plain"},{text:"돼",type:"native",gloss:"成為"}];
+ assert.equal(applyGrammarGlosses(parts,ts,source)[3].gloss,"行");
+});
+test("a standalone positive predicate is not rewritten as negative",()=>{
+ assert.equal(applyGrammarGlosses([{text:"돼",type:"native",gloss:"成為"}],[],"돼")[0].gloss,"成為");
+ assert.equal(applyGrammarGlosses([{text:"말고",type:"native",gloss:"其他"}],[],"말고")[0].gloss,"其他");
+});

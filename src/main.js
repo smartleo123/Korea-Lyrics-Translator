@@ -37,6 +37,20 @@ const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
 let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 let browserTranslator=null;
+let browserTranslatorPending=null;
+function getBrowserTranslator(userGesture=false){
+ if(browserTranslator)return Promise.resolve(browserTranslator);
+ if(browserTranslatorPending)return browserTranslatorPending;
+ const pending=prepareBrowserTranslator({
+  allowDownload:userGesture,userGesture,
+  onDownload:percent=>{
+   if(!loading.hidden)loadingDetail.textContent="瀏覽器翻譯語言包："+percent+"%";
+  }
+ }).then(result=>{if(result)browserTranslator=result;return result;})
+   .catch(()=>null).finally(()=>{if(browserTranslatorPending===pending)browserTranslatorPending=null;});
+ browserTranslatorPending=pending;
+ return pending;
+}
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
@@ -99,17 +113,6 @@ async function initialize(){
     $("annotate").disabled=true;
   }
 }
-$("enableBrowserTranslator").addEventListener("click",async()=>{
- const button=$("enableBrowserTranslator");
- button.disabled=true;
- message("正在確認瀏覽器是否支援韓中翻譯，可能需要下載語言套件…");
- try{
-  browserTranslator=await prepareBrowserTranslator({allowDownload:true,onDownload:percent=>
-   message("瀏覽器韓中翻譯套件下載中："+percent+"%")});
-  message(browserTranslator?"已啟用瀏覽器翻譯。請重新標註歌詞以使用新來源。":
-   "目前瀏覽器不支援韓中本機翻譯；仍使用 MyMemory。");
- }finally{button.disabled=false;}
-});
 function enhanceLine(parts,tokens=[],source=parts.map(p=>p.text).join("")){
  parts=applyGrammarGlosses(parts,tokens,source);
  // Recover full eojeols from Garu rather than translating detached suffixes.
@@ -186,7 +189,7 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("openReader").disabled=isLoading||!lines.length;
  if(isLoading&&readerDialog.open)readerDialog.close();
 }
-async function render(){
+async function render({translatorPromise=null}={}){
  syncOutputTitle();
  if(!initialized){message("分析器尚未就緒。");return;}
  if(translationController)translationController.abort();
@@ -205,6 +208,12 @@ async function render(){
  let result;
  try{
   const koreanLines=splitLyrics(source);
+  // Prefer browser-local translation, with MyMemory as automatic fallback.
+  if(koreanLines.some(line=>/[가-힣]/u.test(line))){
+   loadingDetail.textContent="正在確認瀏覽器韓中翻譯是否可用…";
+   browserTranslator=await (translatorPromise||getBrowserTranslator(false));
+   if(controller.signal.aborted||serial!==renderSerial)return;
+  }
   // Stage 1: translate the whole sentence BEFORE morphological annotation.
   // Even with Chinese subtitles hidden, its meaning guides disambiguation.
   loadingDetail.textContent="先翻譯完整韓文句子…";
@@ -410,7 +419,10 @@ $("providedChinese").addEventListener("input",()=>{
  // Previously generated subtitles must not be shown/exported after edits.
  if(lines.length||!loading.hidden)invalidateOutput();
 });
-$("annotate").onclick=render;
+$("annotate").onclick=()=>{
+ const translatorPromise=getBrowserTranslator(true);
+ render({translatorPromise});
+};
 
 $("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("title").value="詞源對照範例";$("source").value="왜 너는 나를 만나서\n용서 못 해\n감각도 마비 충격 그 자체\n시선 고정 Li li like that\n사랑이 너무 아파";render();};
 $("clear").onclick=()=>{resetSongSearch();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";render();};

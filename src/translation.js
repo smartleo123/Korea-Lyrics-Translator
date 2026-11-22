@@ -4,7 +4,7 @@
 import {translationScheduler} from "./request-scheduler.js";
 export const PROVIDER="MyMemory";
 export const DAILY_LIMIT=80;
-export const CACHE_KEY="korean-lyrics-mymemory-context-v2";
+export const CACHE_KEY="korean-lyrics-mymemory-context-v3";
 export function translationKey(word,context=""){return context?word+"\u241E"+context:word;}
 export function translationCandidates(lines,cache={},max=DAILY_LIMIT,{contexts=[]}={}){
  const frequency=new Map();
@@ -42,7 +42,7 @@ export function extractTranslation(payload,source,maxChars=100){
  const candidate=decodeEntities(raw).trim();
  if(!candidate||candidate===source||/^(?:MYMEMORY WARNING|QUERY LENGTH LIMIT|NO MATCH)/i.test(candidate))return "";
  if(!/[\u3400-\u9fff]/.test(candidate))return "";
- if(/(?:無對應詞彙|没有对应|沒有對應|未找到翻譯|無法翻譯)/u.test(candidate))return "";
+ if(/(?:無對應詞彙|无对应词汇|没有对应|沒有對應|未找到翻譯|無法翻譯)/u.test(candidate))return "";
  return candidate.slice(0,maxChars);
 }
 // Stop waiting on a stalled public API request; propagate a user cancellation.
