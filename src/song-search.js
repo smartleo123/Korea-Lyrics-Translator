@@ -96,6 +96,19 @@ export function artistMatches(candidate,query){
   return !!alias&&(actual===alias||actual.includes(alias));
  });
 }
+export async function searchTrackWithArtistAliases(track,artist,{fetcher=fetch,signal}={}){
+ const title=normalizeSearchTitle(track);
+ if(!title)return [];
+ const variants=artistNameVariants(artist);
+ if(!variants.length)return searchTrackByMetadata(title,"",{fetcher,signal});
+ for(const name of variants.slice(0,2)){
+  if(signal?.aborted)throw abortError();
+  const results=await searchTrackByMetadata(title,name,{fetcher,signal});
+  const matched=results.filter(item=>artistMatches(item.artist,artist));
+  if(matched.length)return matched;
+ }
+ return [];
+}
 export async function searchArtistTracks(artist,{fetcher=fetch,signal}={}){
  const variants=artistNameVariants(artist);
  if(!variants.length)return [];
