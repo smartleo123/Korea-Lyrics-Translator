@@ -3,6 +3,7 @@ import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {validateAnnotationLines} from "./annotation-validation.js";
+import {enrichContextGlosses,restoreCachedContextGlosses,displayAnnotation,CONTEXT_CACHE_KEY} from "./contextual-meaning.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -28,7 +29,7 @@ const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
-let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
+let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY),contextCache=loadCache(localStorage,CONTEXT_CACHE_KEY,{max:600});
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
@@ -127,9 +128,9 @@ function draw(){
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
       element.tabIndex=0;element.title=w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
-      if(w.gloss){
+      if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
-        note.textContent="("+w.gloss.replace(/^≈/,"")+")";
+        note.textContent="("+displayAnnotation(w).replace(/^≈/,"")+")";
         element.append(note);
       }
       element.addEventListener("click",()=>edit(i,j));
@@ -199,19 +200,32 @@ async function render(){
   // A Chinese rendering never proves a Chinese-character origin.
   loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
   lines=koreanLines.map(analyzeLine);
-  applyTranslations(lines,translations);
+  applyTranslations(lines,translations,{contexts:koreanLines});
+  // Contrastive alignment: compare each sentence with the same sentence
+  // minus one analyzed token. Use only a stable Chinese translation delta.
+  loadingDetail.textContent="正在比對整句語境與韓文字詞…";
+  await enrichContextGlosses(lines,lineTranslations,{
+    cache:contextCache,signal:controller.signal,max:12,
+    onProgress:({attempted,total})=>{
+      if(!controller.signal.aborted&&serial===renderSerial)
+        loadingDetail.textContent="語境對位中 "+attempted+" / "+total+"…";
+    }
+  });
+  if(controller.signal.aborted||serial!==renderSerial)return;
+  saveCache(localStorage,CONTEXT_CACHE_KEY,contextCache,{max:600});
 
-  // Stage 3: only unresolved lexical meanings use word-level MyMemory.
-  const {total}=translationCandidates(lines,translations);
+  // Only words that remain without a contextual/dictionary gloss use
+  // independent vocabulary MT. Never share this fallback across songs.
+  const {total}=translationCandidates(lines,translations,80,{contexts:koreanLines});
   if(total){
     loadingDetail.textContent="正在補充尚未收錄的韓文詞義…";
     result=await translateMissing(lines,{
-      cache:translations,signal:controller.signal,
+      cache:translations,contexts:koreanLines,signal:controller.signal,
       onItem:()=>{saveCache(localStorage,CACHE_KEY,translations);}
     });
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
-  applyTranslations(lines,translations);
+  applyTranslations(lines,translations,{contexts:koreanLines});
   // Evidence can guide manual review, but sentence translation does not
   // align individual words; preserve complete lexical annotations.
   lines=validateAnnotationLines(lines,lineTranslations,{custom});
@@ -230,7 +244,7 @@ async function render(){
 function edit(i,j){
   currentSelected={i,j};
   const w=lines[i][j];
-  $("editWord").value=w.text;$("editGloss").value=w.gloss||"";
+  $("editWord").value=w.text;$("editGloss").value=displayAnnotation(w)||"";
   $("editType").value=["hanja","native","loan","unknown"].includes(w.type)?w.type:"hanja";
   if(w.choices?.length) {
     $("editGloss").placeholder="漢字候選："+w.choices.join("／");
@@ -244,14 +258,16 @@ $("editForm").addEventListener("submit",e=>{
   custom[word]={type,gloss,source:"custom"};try{localStorage.setItem(KEY,JSON.stringify(custom));}catch{}
   // Local correction must not start dozens of MyMemory calls again.
   lines=splitLyrics($("source").value).map(analyzeLine);
-  applyTranslations(lines,translations);
+  const sourceLines=splitLyrics($("source").value);
+  applyTranslations(lines,translations,{contexts:sourceLines});
+  restoreCachedContextGlosses(lines,lineTranslations,contextCache);
   lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function exportMarkup(){
 const title=$("title").value.trim()||"韓語歌詞詞源對照";
-const body=lines.map((parts,index)=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(p.gloss?'<small>('+esc(p.gloss.replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>'+(showChinese&&lineTranslations[index]?.text?'<div class="translation">'+esc(lineTranslations[index].text)+'</div>':"")).join("\n");
+const body=lines.map((parts,index)=>'<div class="line">'+parts.map(p=>p.type==="plain"?esc(p.text):'<span class="'+(["ambiguous","unknown"].includes(p.type)?"native":p.type)+'">'+esc(p.text)+(displayAnnotation(p)?'<small>('+esc(displayAnnotation(p).replace(/^≈/,""))+')</small>':"")+'</span>').join("")+'</div>'+(showChinese&&lineTranslations[index]?.text?'<div class="translation">'+esc(lineTranslations[index].text)+'</div>':"")).join("\n");
 return '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{background:#10151e;color:white;font:19px/2 system-ui,"Noto Sans KR","Noto Sans TC",sans-serif;max-width:820px;margin:35px auto;padding:0 20px}.hanja{color:#ff667e}.native{color:white}.loan{color:#c69bff}.unknown{color:#ffc77d}small{font-size:.74em;opacity:.8}.line{white-space:pre;min-height:1.6em;width:max-content;min-width:100%}small{white-space:nowrap}.translation{white-space:pre;color:#b7cced;font-size:.85em;border-left:2px solid #42658d;padding-left:12px;margin-bottom:10px}</style><h1>'+esc(title)+'</h1>'+body+'</html>';
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
