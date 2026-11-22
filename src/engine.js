@@ -60,6 +60,21 @@ export function annotateSpan(span,hanjaMap,curated={}) {
  }
  const conjugated=morphs.some(m=>/^(VV|VA|VX|VCP|VCN|E)/.test(m.pos||""));
  // A lexicon hit for the written surface does not overrule verbal morphology.
+ // POS evidence for a genuine particle outranks a coincident full-string
+ // Sino-Korean headword (e.g. a noun+도 must not turn into another noun).
+ const containsParticle=morphs.some(m=>/^(JKS|JKO|JKB|JKG|JX|JC)$/.test(m.pos||""));
+ if(containsParticle){
+  const roots=morphs.filter(m=>NOUN_POS.has(m.pos)&&/^[가-힣]+$/.test(String(m.text||"")))
+   .filter(m=>surface.startsWith(m.text)&&m.text.length<surface.length)
+   .sort((a,b)=>b.text.length-a.text.length);
+  for(const root of roots){
+   const rest=surface.slice(root.text.length);
+   const classified=classifyHeadword(root.text,root.pos,hanjaMap,curated);
+   if(classified.type==="hanja"||classified.source==="curated"||classified.source==="custom"){
+    return [{text:root.text,...classified},{text:rest,type:"native",gloss:"",source:"grammar"}];
+   }
+  }
+ }
  const exact=classifyHeadword(surface,conjugated?"VV":pos,hanjaMap,curated);
  if(exact.type==="hanja"||exact.type==="ambiguous"||exact.source==="curated")
    return [{text:surface,...exact}];

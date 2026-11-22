@@ -41,3 +41,18 @@ test("no suffix guessing without morphological evidence",()=>{
  assert.equal(isGrammaticalReading("게",[],"게"),false);
  assert.equal(isGrammaticalReading("안",[],"안"),false);
 });
+
+test("contracted pronouns override false proper-noun Hanja even when Garu tags NNG",()=>{
+ const source="난 내가 중요해";
+ const ts=tokens(source,[["난","NNG"],["내가","NP"],["중요해","VA"]]);
+ const parts=[{text:"난",type:"hanja",gloss:"欄"},{text:" ",type:"plain"},
+   {text:"내가",type:"native"},{text:" ",type:"plain"},{text:"중요해",type:"native"}];
+ assert.equal(applyGrammarGlosses(parts,ts,source)[0].gloss,"我");
+});
+test("bound noun followed by subject particle rejects the unrelated price gloss",()=>{
+ const source="다를 수가 있어";
+ const ts=tokens(source,[["다를","VA"],["수","NNB"],["가","JKS"],["있어","VV"]]);
+ const parts=[{text:"다를 ",type:"native"},{text:"수가",type:"native",gloss:"價格"},
+   {text:" ",type:"plain"},{text:"있어",type:"native"}];
+ assert.equal(applyGrammarGlosses(parts,ts,source)[1].gloss,"可能");
+});

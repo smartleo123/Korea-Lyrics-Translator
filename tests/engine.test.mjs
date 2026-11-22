@@ -58,3 +58,12 @@ test('explicit user corrections still take priority',()=>{
  const parts=annotateSpan({surface:'지샌',morphs:[{text:'지새',pos:'VV'}]},hanja,override);
  assert.equal(parts[0].gloss,'自訂詞源');
 });
+
+test("a noun followed by an attested particle is not mislabeled using a full-form homograph",()=>{
+ const dict=new Map([["음악",["音樂"]],["음악도",["音樂徒"]]]);
+ const parts=annotateSpan({surface:"음악도",morphs:[{text:"음악",pos:"NNG"},{text:"도",pos:"JX"}]},dict);
+ assert.equal(parts[0].text,"음악");
+ assert.equal(parts[0].gloss,"音樂");
+ assert.equal(parts[1].text,"도");
+ assert.equal(parts.map(p=>p.text).join(""),"음악도");
+});
