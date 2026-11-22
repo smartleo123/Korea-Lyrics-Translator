@@ -5,6 +5,7 @@ import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCover
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
+import {saveAnnotatedPdf} from "./pdf-export.js";
 import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVariants,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
@@ -95,7 +96,7 @@ function draw(){
   const coverage=countKoreanCoverage(lines);
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
   syncOutputTitle();
-  $("download").disabled=!input.trim();$("copy").disabled=!input.trim();
+  $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
 }
 function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…"){
  loading.hidden=!isLoading;
@@ -106,6 +107,7 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("toggleChinese").disabled=isLoading;
  $("sample").disabled=isLoading;
  $("download").disabled=isLoading;
+ $("downloadPdf").disabled=isLoading;
  $("copy").disabled=isLoading;
 }
 async function render(){
@@ -311,7 +313,7 @@ function invalidateOutput(){
  lines=[];lineTranslations=[];
  output.replaceChildren();status.textContent="";
  setLoading(false);
- $("download").disabled=true;$("copy").disabled=true;
+ $("download").disabled=true;$("downloadPdf").disabled=true;$("copy").disabled=true;
  message($("source").value.trim()?"歌詞內容已修改，請按「自動標註歌詞」以更新結果。":"");
 }
 $("source").addEventListener("input",()=>{lyricImportController?.abort();invalidateOutput();});
@@ -324,9 +326,23 @@ $("sample").onclick=()=>{$("artist").value="";$("providedChinese").value="";$("t
 $("clear").onclick=()=>{resetSongSearch();$("source").value="";$("title").value="";$("artist").value="";$("providedChinese").value="";$("songResults").replaceChildren();$("songSearchStatus").textContent="";render();};
 $("title").addEventListener("input",syncOutputTitle);
 $("download").onclick=()=>download(($("title").value.trim()||"韓語歌詞")+"-詞源對照.html",exportMarkup(),"text/html;charset=utf-8");
+$("downloadPdf").onclick=async()=>{
+ const button=$("downloadPdf");
+ if(button.disabled||!lines.length)return;
+ button.disabled=true;
+ const label=button.textContent;
+ button.textContent="正在製作 PDF…";
+ try{
+  await saveAnnotatedPdf(lines,{title:$("title").value.trim()||"韓語歌詞詞源對照",showChinese,translations:lineTranslations});
+  message("PDF 已產生並開始下載。");
+ }catch(err){
+  console.error("PDF export failed",err);
+  message("PDF 下載失敗，請重試或改用 HTML 下載。");
+ }finally{
+  button.textContent=label;
+  button.disabled=!lines.length||!$("source").value.trim()||!loading.hidden;
+ }
+};
 $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(lines.map((parts,i)=>{const annotated=parts.map(p=>p.text+(p.gloss?"("+p.gloss+")":"")).join("");return showChinese&&lineTranslations[i]?.text?annotated+"\n"+lineTranslations[i].text:annotated;}).join("\n"));message("已複製標註文字。");}catch{message("複製失敗，請下載 HTML。");}};
-$("exportDict").onclick=()=>download("korean-custom-dictionary.json",JSON.stringify(custom,null,2),"application/json");
-$("importDict").onclick=()=>$("dictFile").click();
-$("dictFile").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!data||Array.isArray(data)||typeof data!=="object")throw Error("JSON format");let n=0;for(const [word,v] of Object.entries(data)){if(!/^[가-힣]+$/.test(word)||!v||!["hanja","native","loan","unknown"].includes(v.type)||typeof v.gloss!=="string")continue;custom[word]={type:v.type,gloss:v.gloss,source:"custom"};n++;}localStorage.setItem(KEY,JSON.stringify(custom));render();message("已匯入 "+n+" 筆自訂詞彙。");}catch{message("匯入失敗：請檢查 JSON 格式。");}e.target.value="";});
 $("annotate").disabled=true;
 initialize();
