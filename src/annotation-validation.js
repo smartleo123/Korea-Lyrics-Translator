@@ -21,7 +21,7 @@ export function validateWordAnnotations(parts,sentence,{custom={}}={}){
   if(!part.gloss||custom[part.text]||part.source==="custom")return part;
   if(part.type==="loan")return part;
   const evidence=lexicalContextEvidence(part.gloss,sentence);
-  if(part.type==="hanja")return {...part,contextEvidence:evidence};
+  if(part.type==="hanja")return part;
   if(part.translationSource!=="MyMemory")return part;
   // The Chinese meaning of a standalone word is not aligned to this sentence.
   // Keep it available for manual review but do not present it as verified.
