@@ -426,3 +426,24 @@ test('unverified lyric words preserve Hangul and line structure without forced m
  expect(text).toContain('솔직함');
  expect(text).not.toContain('摳門鬼');
 });
+
+test('editing provided Chinese after annotation invalidates outdated results',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:'你好'}}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('사랑해');
+ await page.locator('#providedChinese').fill('我愛你');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('.line-translation')).toContainText('我愛你');
+ await page.locator('#providedChinese').fill('新的人工譯文');
+ await expect(page.locator('.line-translation')).toHaveCount(0);
+ await expect(page.locator('#download')).toBeDisabled();
+ await expect(page.locator('#downloadPdf')).toBeDisabled();
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('.line-translation')).toContainText('新的人工譯文');
+});
+
