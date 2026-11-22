@@ -27,7 +27,7 @@ export function segmentByOffsets(text,tokens=[]) {
   return result;
 }
 export function classifyHeadword(word,pos,hanjaMap,curated={}) {
-  if(curated[word])return {...curated[word],source:"curated"};
+  if(curated[word])return {...curated[word],source:curated[word].source==="custom"?"custom":"curated"};
   if(/^[a-z]/i.test(word)||pos==="SL")return {type:"loan",gloss:"",source:"pos"};
   if(pos&&(GRAMMAR.test(pos)||NATIVE_POS.has(pos)))return {type:"native",gloss:"",source:"pos"};
   const options=hanjaMap.get(word)||[];
