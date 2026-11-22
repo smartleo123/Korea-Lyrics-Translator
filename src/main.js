@@ -10,6 +10,14 @@ import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVarian
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
+const helpDialog=$("helpDialog");
+$("helpOpen").addEventListener("click",()=>helpDialog.showModal());
+// Native dialog restores focus and supports Escape; clicking the dimmed
+// backdrop also closes the modal without navigating away from the editor.
+helpDialog.addEventListener("click",event=>{
+ if(event.target===helpDialog)helpDialog.close();
+});
+
 const KEY="korean-lyrics-custom-v1";
 const seed=[
 ["용서","hanja","容恕"],["여자","hanja","女子"],["잔인","hanja","殘忍"],["인연","hanja","因緣"],["후회","hanja","後悔"],["애원","hanja","哀願"],["유혹","hanja","誘惑"],["상처","hanja","傷處"],["변하다","hanja","變"],["변해가는","hanja","變（逐漸改變）"],["최적","hanja","最適"],["분석","hanja","分析"],["중","hanja","中"],["감각","hanja","感覺"],["마비","hanja","麻痺"],["충격","hanja","衝擊"],["자체","hanja","自體"],["시선","hanja","視線"],["고정","hanja","固定"],["계속","hanja","繼續"],["위험","hanja","危險"],["지금","hanja","只今"],["순간","hanja","瞬間"],["직전","hanja","直前"],["이미","native","已經"],["매일","hanja","每日"],["세상","hanja","世上"],["부족","hanja","不足"],["이해","hanja","理解"],["농담","hanja","弄談"],["사소","hanja","些少"],["수","native","可以／可能（依存名詞）"],
