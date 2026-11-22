@@ -100,6 +100,29 @@ test('editing lyrics while a selected song loads never overwrites manual work',a
  await expect(page.locator('#source')).toHaveValue('내가 직접 입력한 가사');
 });
 
+test('BESTie artist search retries Korean stage name when English query misses',async({page})=>{
+ const searched=[];
+ await page.route('https://lrclib.net/api/search?*',route=>{
+  const q=new URL(route.request().url()).searchParams.get('q');
+  searched.push(q);
+  return route.fulfill({json:q==='베스티'?[
+   {id:750,trackName:'연애의 조건',artistName:'베스티 (BESTie)',albumName:'Hot Baby'}
+  ]:[]});
+ });
+ await page.goto('/');
+ await page.locator('#artist').fill('bestie');
+ await page.locator('#findArtistSongs').click();
+ await expect(page.locator('#songResults')).toContainText('연애의 조건');
+ expect(searched).toEqual(['bestie','베스티']);
+});
+test('empty lyric catalog does not imply the artist does not exist',async({page})=>{
+ await page.route('https://lrclib.net/api/search?*',route=>route.fulfill({json:[]}));
+ await page.goto('/');
+ await page.locator('#artist').fill('bestie');
+ await page.locator('#findArtistSongs').click();
+ await expect(page.locator('#songSearchStatus')).toContainText('不代表歌手不存在');
+});
+
 test('Korean lyric forms from screenshot get meanings and preserve the source lines',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
   responseStatus:200,responseData:{translatedText:'詞義'}
