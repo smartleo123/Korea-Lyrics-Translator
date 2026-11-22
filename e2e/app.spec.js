@@ -60,6 +60,25 @@ test('LRCLIB title lookup does not replace manual input with English lyrics',asy
  await expect(page.locator('#source')).toHaveValue('기존 한국어 가사');
 });
 
+test('song and artist inputs use precise LRCLIB metadata search',async({page})=>{
+ let requested='';
+ await page.route('https://lrclib.net/api/search?*',route=>{
+  requested=route.request().url();
+  return route.fulfill({json:[{
+   id:106,trackName:"It's Me",artistName:'ILLIT',albumName:'Original'
+  }]});
+ });
+ await page.goto('/');
+ await page.locator('#title').fill('It′s Me');
+ await page.locator('#artist').fill('ILLIT');
+ await page.locator('#findLyrics').click();
+ await expect(page.locator('#songResults')).toContainText("It's Me");
+ const params=new URL(requested).searchParams;
+ expect(params.get('track_name')).toBe("It's Me");
+ expect(params.get('artist_name')).toBe('ILLIT');
+ expect(params.has('q')).toBe(false);
+});
+
 test('Korean lyric forms from screenshot get meanings and preserve the source lines',async({page})=>{
  await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
   responseStatus:200,responseData:{translatedText:'詞義'}
