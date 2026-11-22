@@ -3,6 +3,7 @@ import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY,LYRIC_SURFACE_GLOSSARY,inferHanjaInContext} from "./glossary.js";
 import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCoverage} from "./coverage.js";
 import {resolveLyricSurface} from "./context-gloss.js";
+import {applySentenceContext} from "./context-alignment.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -185,30 +186,43 @@ async function render(){
  if(controller.signal.aborted||serial!==renderSerial)return;
  let result;
  try{
-  lines=splitLyrics(source).map(analyzeLine);
-  lineTranslations=[];
+  const koreanLines=splitLyrics(source);
+  // Stage 1: translate the whole sentence BEFORE morphological annotation.
+  // Even with Chinese subtitles hidden, its meaning guides disambiguation.
+  loadingDetail.textContent="先翻譯完整韓文句子…";
+  const lineResult=await translateLines(koreanLines,{
+    provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
+    onProgress:({attempted,total})=>{
+      if(!controller.signal.aborted&&serial===renderSerial)
+        loadingDetail.textContent="整句翻譯中 "+attempted+" / "+total+"…";
+    }
+  });
+  if(controller.signal.aborted||serial!==renderSerial)return;
+  lineTranslations=lineResult.rows;
+  saveCache(localStorage,LINE_CACHE_KEY,lineCache);
+
+  // Stage 2: Garu and the etymology dictionary classify Korean tokens.
+  // A Chinese rendering never proves a Chinese-character origin.
+  loadingDetail.textContent="結合整句語境進行形態分析與詞源標註…";
+  lines=koreanLines.map(analyzeLine);
+  lines=applySentenceContext(lines,lineTranslations,{custom});
   applyTranslations(lines,translations);
+
+  // Stage 3: only unresolved lexical meanings use word-level MyMemory.
   const {total}=translationCandidates(lines,translations);
   if(total){
-   loadingDetail.textContent="正在取得中文詞義…";
-   result=await translateMissing(lines,{
-     cache:translations,signal:controller.signal,
-     onItem:()=>{saveCache(localStorage,CACHE_KEY,translations);}
-   });
+    loadingDetail.textContent="正在補充尚未收錄的韓文詞義…";
+    result=await translateMissing(lines,{
+      cache:translations,signal:controller.signal,
+      onItem:()=>{saveCache(localStorage,CACHE_KEY,translations);}
+    });
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
+  // A reliable sentence cue may correct a misleading word-only translation;
+  // never overwrite custom corrections or verified Hanja.
+  lines=applySentenceContext(lines,lineTranslations,{custom});
   saveCache(localStorage,CACHE_KEY,translations);
-  if(showChinese){
-    loadingDetail.textContent="正在準備逐行中文翻譯…";
-    const lineResult=await translateLines(splitLyrics(source),{
-      provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
-      onProgress:({attempted,total})=>{loadingDetail.textContent="逐行中文翻譯中 "+attempted+" / "+total+"…";}
-    });
-    if(controller.signal.aborted||serial!==renderSerial)return;
-    lineTranslations=lineResult.rows;
-    saveCache(localStorage,LINE_CACHE_KEY,lineCache);
-  }
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
   const missing=result?result.failed+Math.max(0,result.total-result.attempted):0;
@@ -238,6 +252,7 @@ $("editForm").addEventListener("submit",e=>{
   // Local correction must not start dozens of MyMemory calls again.
   lines=splitLyrics($("source").value).map(analyzeLine);
   applyTranslations(lines,translations);
+  lines=applySentenceContext(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -333,34 +348,14 @@ async function runSongSearch(artistMode){
 }
 $("findLyrics").onclick=()=>runSongSearch(false);
 $("findArtistSongs").onclick=()=>runSongSearch(true);
-$("toggleChinese").onclick=async()=>{
-  showChinese=!showChinese;
-  $("toggleChinese").setAttribute("aria-pressed",String(showChinese));
-  $("toggleChinese").textContent=showChinese?"隱藏逐行中文翻譯":"顯示逐行中文翻譯";
-  if(!lines.length)return;
-  if(!showChinese){draw();return;}
-  const source=splitLyrics($("source").value);
-  const provided=alignProvidedTranslations(source,$("providedChinese").value);
-  const needs=source.some((line,i)=>line.trim()&&!provided[i]&&!lineCache[line]);
-  if(!needs){lineTranslations=provided.map((x,i)=>x||(lineCache[source[i]]?{text:lineCache[source[i]],source:"MyMemory"}:null));draw();return;}
-  // Translation is completed before any annotated output is revealed again.
-  if(translationController)translationController.abort();
-  translationController=new AbortController();const serial=++renderSerial,controller=translationController;
-  setLoading(true,"逐行中文翻譯中…");
-  await new Promise(resolve=>requestAnimationFrame(resolve));
-  try{
-    const result=await translateLines(source,{provided:$("providedChinese").value,cache:lineCache,signal:controller.signal,
-      onProgress:({attempted,total})=>{loadingDetail.textContent="逐行中文翻譯中 "+attempted+" / "+total+"…";}});
-    if(controller.signal.aborted||serial!==renderSerial)return;
-    lineTranslations=result.rows;
-    saveCache(localStorage,LINE_CACHE_KEY,lineCache);
-    draw();setLoading(false);
-    message(result.failed||result.skipped?"逐行翻譯完成，部分句子無法取得譯文，保留韓文原文。":"逐行中文翻譯已顯示。");
-  }catch(e){
-    if(controller.signal.aborted||serial!==renderSerial)return;
-    lineTranslations=provided;draw();setLoading(false);
-    message("逐行翻譯服務暫時無法使用，已保留現有文字。");
-  }
+$("toggleChinese").onclick=()=>{
+ showChinese=!showChinese;
+ $("toggleChinese").setAttribute("aria-pressed",String(showChinese));
+ $("toggleChinese").textContent=showChinese?"隱藏逐行中文翻譯":"顯示逐行中文翻譯";
+ // Sentence translation is already acquired in the initial analysis.
+ // Showing/hiding subtitles must not issue more network requests.
+ if(lines.length&&!loading.hidden) return;
+ if(lines.length)draw();
 };
 
 function invalidateOutput(){
