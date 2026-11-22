@@ -29,9 +29,50 @@ const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
 let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
+const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
+let readerFontSize=30;
+function refreshReader(){
+ if(!readerDialog.open)return;
+ $("readerTitle").textContent=$("title").value.trim()||"歌詞閱讀模式";
+ readerLyrics.replaceChildren(...Array.from(output.children,node=>{
+  const clone=node.cloneNode(true);
+  // Word editing belongs to the normal annotation pane, not reading mode.
+  clone.querySelectorAll(".word").forEach(word=>{
+   word.removeAttribute("tabindex");
+   word.removeAttribute("title");
+  });
+  return clone;
+ }));
+}
+function setReaderFontSize(value){
+ readerFontSize=Math.max(20,Math.min(54,value));
+ readerLyrics.style.setProperty("--reader-font-size",readerFontSize+"px");
+ $("readerFontSize").textContent=readerFontSize+"px";
+ $("readerSmaller").disabled=readerFontSize<=20;
+ $("readerLarger").disabled=readerFontSize>=54;
+ try{localStorage.setItem("korean-lyrics-reader-font-size",String(readerFontSize));}catch{}
+}
+try{
+ const savedSize=Number(localStorage.getItem("korean-lyrics-reader-font-size"));
+ if(Number.isFinite(savedSize)&&savedSize>=20&&savedSize<=54)readerFontSize=savedSize;
+}catch{}
+setReaderFontSize(readerFontSize);
+$("openReader").addEventListener("click",()=>{
+ if(!lines.length||loading.hidden===false)return;
+ readerDialog.showModal();
+ refreshReader();
+ $("closeReader").focus();
+});
+$("closeReader").addEventListener("click",()=>readerDialog.close());
+$("readerSmaller").addEventListener("click",()=>setReaderFontSize(readerFontSize-4));
+$("readerLarger").addEventListener("click",()=>setReaderFontSize(readerFontSize+4));
+readerDialog.addEventListener("click",event=>{if(event.target===readerDialog)readerDialog.close();});
+readerDialog.addEventListener("close",()=>readerLyrics.replaceChildren());
+
 function message(s){notice.textContent=s;}
 function syncOutputTitle(){
  $("outputTitle").textContent="02　"+($("title").value.trim()||"歌詞標註結果");
+ if(readerDialog.open)$("readerTitle").textContent=$("title").value.trim()||"歌詞閱讀模式";
 }
 async function initialize(){
   message("正在載入韓語形態分析模型及漢字詞典…");
@@ -105,6 +146,8 @@ function draw(){
   status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
+  $("openReader").disabled=!input.trim();
+  refreshReader();
 }
 function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…"){
  loading.hidden=!isLoading;
@@ -117,6 +160,8 @@ function setLoading(isLoading,detail="正在分析詞彙與取得中文註解…
  $("download").disabled=isLoading;
  $("downloadPdf").disabled=isLoading;
  $("copy").disabled=isLoading;
+ $("openReader").disabled=isLoading||!lines.length;
+ if(isLoading&&readerDialog.open)readerDialog.close();
 }
 async function render(){
  syncOutputTitle();
@@ -127,7 +172,7 @@ async function render(){
  const serial=++renderSerial;
  const source=$("source").value.replace(/\r\n?/g,"\n");
  if(!source.trim()){
-  lines=[];setLoading(false);output.replaceChildren();status.textContent="";message("");return;
+  lines=[];setLoading(false);output.replaceChildren();status.textContent="";$("openReader").disabled=true;message("");return;
  }
  setLoading(true);
  message("");
@@ -321,7 +366,8 @@ function invalidateOutput(){
  lines=[];lineTranslations=[];
  output.replaceChildren();status.textContent="";
  setLoading(false);
- $("download").disabled=true;$("downloadPdf").disabled=true;$("copy").disabled=true;
+ $("download").disabled=true;$("downloadPdf").disabled=true;$("copy").disabled=true;$("openReader").disabled=true;
+ if(readerDialog.open)readerDialog.close();
  message($("source").value.trim()?"歌詞內容已修改，請按「自動標註歌詞」以更新結果。":"");
 }
 $("source").addEventListener("input",()=>{lyricImportController?.abort();invalidateOutput();});
