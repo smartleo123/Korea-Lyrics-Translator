@@ -28,7 +28,6 @@ export function deriveContextGloss(fullTranslation,omittedTranslation){
  if(retained<Math.max(2,Math.ceil(b.length*.58)))return null;
  if(!CJK.test(delta)||[...delta].length>22)return null;
  if([...fromLess].length>Math.max(4,[...delta].length+2))return null;
- if(/^(?:的|了|是|和|在|有|我|你|他|她|它|啊|呢|吧|嗎|哦)$/.test(delta))return null;
  return {gloss:delta,confidence:retained/Math.max(a.length,b.length)};
 }
 export function withoutPart(parts,index){
