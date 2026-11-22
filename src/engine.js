@@ -3,7 +3,6 @@
 const GRAMMAR=/^(?:J|E)/;
 const NATIVE_POS=new Set(["VV","VA","VX","VCP","VCN","NP","NR","MAG","MAJ","IC","MM","NNB","XSV","XSA","XSN","SP","SF","SS","SE","SO","SW","SN"]);
 const NOUN_POS=new Set(["NNG","NNP","XR","XPN"]);
-const PARTICLES=new Set(["은","는","이","가","을","를","에","에서","에게","께","의","도","만","로","으로","와","과","랑","하고","부터","까지","처럼","마다","보다","라도","이나","나","요","야","네","겠","은데","는데","에서","으로서","라고","이라","아","어","게","고","지","면"]);
 export function segmentByOffsets(text,tokens=[]) {
   // Garu offsets are Unicode code points, not JavaScript UTF-16 offsets.
   const cp=[...text]; const boundaries=[0];let offset=0;
@@ -40,18 +39,6 @@ export function classifyHeadword(word,pos,hanjaMap,curated={}) {
   if(pos)return {type:"native",gloss:"",source:"pos-inferred"};
   return {type:"unknown",gloss:"",source:"no-analysis"};
 }
-function choosePrefix(surface,dict,curated,pos){
-  // Accept only attested full lexemes followed by a recognized grammatical ending.
-  // Avoid arbitrary splits such as 사랑 from 사랑스러워.
-  for(let len=surface.length-1;len>=1;len--){
-    const root=surface.slice(0,len),tail=surface.slice(len);
-    if(!PARTICLES.has(tail)&&!(/^[은는이가을를도만에의]$/.test(tail)))continue;
-    const record=classifyHeadword(root,pos,dict,curated);
-    if(record.type==="unknown"||record.source==="pos-inferred")continue;
-    return [{text:root,...record},{text:tail,type:"native",gloss:"",source:"grammar"}];
-  }
-  return null;
-}
 export function annotateSpan(span,hanjaMap,curated={}) {
  const surface=span.surface;
  if(!/[가-힣A-Za-z]/.test(surface))return [{text:surface,type:"plain",gloss:""}];
@@ -77,9 +64,7 @@ export function annotateSpan(span,hanjaMap,curated={}) {
      return [{text:root.text,...classification},{text:rest,type:"native",gloss:"",source:"grammar"}];
    }
  }
- const prefix=choosePrefix(surface,hanjaMap,curated,pos);
- if(prefix)return prefix;
- // If the analyzer classifies a word as an ordinary noun/verb, default to
+ // No suffix splitting based on dictionary coincidence. Only Garu-attested\n // nominal stems above may be separated from particles.\n // If the analyzer classifies a word as an ordinary noun/verb, default to
  // white Hangul without an invented Chinese gloss.
  return [{text:surface,...exact}];
 }
