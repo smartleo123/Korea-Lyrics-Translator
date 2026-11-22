@@ -4,7 +4,8 @@ import {dictionaryGloss,fillDictionaryGlosses,keyForLemma} from "../src/krdict.j
 
 test("real Korean learner dictionary shard schema yields a concise Chinese gloss",()=>{
  assert.equal(dictionaryGloss([[["讲，述说","用语言表达"]]],x=>x.replace("讲","講")),"講，述说");
- assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]]),"");
+ assert.equal(dictionaryGloss([[["一种意思","第一义"],["另一种意思","第二义"]]]),"一种意思／另一种意思");
+ assert.equal(dictionaryGloss([[["一","1"],["二","2"],["三","3"],["四","4"]]]),"");
  assert.equal(dictionaryGloss(undefined),"");
  assert.equal(keyForLemma("말하다"),"b9d0");
  assert.equal(keyForLemma("?"),null);
@@ -28,9 +29,10 @@ test("polysemous, corrupt, or unavailable dictionary data is not invented",async
   ?{ok:true,json:async()=>({"하나":[[["一","数字"],["单一","只有一个"]]]})}
   :{ok:false,status:404,json:async()=>({})};
  const r=await fillDictionaryGlosses(lines,{fetcher,converter:x=>x,baseUrl:"https://dictionary.test/"});
- assert.equal(r.matched,0);
+ assert.equal(r.matched,1);
  assert.ok(r.failed>=1);
- assert.ok(lines[0].every(p=>!p.gloss));
+ assert.equal(lines[0][0].gloss,"一／单一");
+ assert.equal(lines[0][1].gloss,"");
 });
 test("source and user-supplied glosses always outrank dictionary",async()=>{
  const lines=[[{text:"좋다",type:"native",gloss:"我設定的詞義",source:"custom"}]];

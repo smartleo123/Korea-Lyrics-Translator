@@ -34,11 +34,15 @@ export function dictionaryGloss(translation,convert=x=>x){
   for(const item of value)visit(item);
  }
  visit(translation);
- // Polysemy is not a license to guess which sense the lyrics intend.
- if(meanings.size!==1)return "";
+ // Multiple attested meanings are alternatives, not a guessed single sense.
+ // Show a short "A／B" label only for small, readable dictionaries; abstain
+ // instead of flooding lyrics with dozens of unrelated definitions.
+ if(meanings.size<1||meanings.size>3)return "";
  try{
-  const converted=convert([...meanings][0]);
-  return typeof converted==="string"?converted.trim().slice(0,40):"";
+  const converted=[...meanings].map(meaning=>convert(meaning)).filter(value=>typeof value==="string"&&value.trim());
+  if(converted.length!==meanings.size||converted.some(value=>[...value].length>16))return "";
+  const label=[...new Set(converted.map(value=>value.trim()))].join("／");
+  return [...label].length<=45?label:"";
  }catch{return "";}
 }
 export function getDictionaryConverter(){
