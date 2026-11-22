@@ -79,6 +79,7 @@ test('a provided Chinese sentence guides annotation before word-only translation
  await page.goto('/');
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
  await page.locator('#source').fill('내 맘이 아파와');
+ await page.locator('details.optional-translation summary').click();
  await page.locator('#providedChinese').fill('我的心感到疼痛');
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
