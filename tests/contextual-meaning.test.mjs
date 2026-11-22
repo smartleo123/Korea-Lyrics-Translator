@@ -9,7 +9,7 @@ test('contrastive Chinese sentence delta extracts contextual meaning generically
  const r=deriveContextGloss('我現在就想走，但有點遠','我現在就想走，但有點');
  assert.equal(r?.gloss,'遠');
  assert.equal(deriveContextGloss('我現在想去，但有點遠','我希望你別哭'),null);
- assert.equal(deriveContextGloss('我喜歡你','我喜歡'),null); // one syllable insufficient reliable context
+ assert.equal(deriveContextGloss('我喜歡你','我喜歡')?.gloss,'你');
 });
 test('remove selected Garu surface while preserving source order',()=>{
  const parts=[tok('당장'),tok(' ','plain'),tok('가고'),tok(' ','plain'),tok('싶지만')];
@@ -35,7 +35,7 @@ test('context retranslation replaces wrong independent gloss without a song-spec
  assert.equal(cloned[0].gloss,'我想去');
 });
 test('Hanja origin and sentence-specific meaning remain separate',async()=>{
- const line=[tok('당장','hanja','當場',{source:'dictionary'}),tok(' ','plain'),tok('가고')];
+ const line=[tok('당장','hanja','當場',{source:'dictionary'}),tok(' ','plain'),tok('가고','native','走',{translationSource:'lexicon'})];
  const fetcher=async()=>({ok:true,json:async()=>({responseStatus:200,responseData:{translatedText:'想走'}})});
  await enrichContextGlosses([line],[{text:'現在就想走'}],{fetcher,max:1});
  assert.equal(line[0].gloss,'當場');
