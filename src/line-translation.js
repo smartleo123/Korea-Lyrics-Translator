@@ -3,7 +3,7 @@
 // user-supplied licensed translations take priority.
 import {translateOne} from "./translation.js";
 import {usableTranslation} from "./browser-translation.js";
-export const LINE_CACHE_KEY="korean-lyrics-line-translation-v2";
+export const LINE_CACHE_KEY="korean-lyrics-line-translation-v3";
 const cacheKey=(provider,source)=>provider+"\u241E"+source;
 export function alignProvidedTranslations(koreanLines,provided){
  const input=String(provided||"");
