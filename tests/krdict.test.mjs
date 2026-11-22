@@ -46,3 +46,22 @@ test("aborted dictionary requests never mutate annotations",async()=>{
  assert.equal(result.aborted,true);
  assert.equal(lines[0][0].gloss,"");
 });
+
+test("long lyrics search all unique dictionary shards instead of silently truncating at 32",async()=>{
+ const candidates=Array.from({length:38},(_,i)=>({
+  text:String.fromCharCode(0xac00+i*28),type:"native",gloss:""
+ }));
+ let requestCount=0;
+ const lines=[candidates];
+ const fetcher=async()=>{requestCount++;return {ok:true,json:async()=>({})};};
+ const result=await fillDictionaryGlosses(lines,{fetcher,converter:x=>x,baseUrl:"https://all-shards.test/"});
+ assert.equal(result.skippedShards,0);
+ assert.equal(requestCount,38);
+ assert.equal(result.failed,0);
+});
+test("explicit shard budgets report omitted shards and preserve unknown words",async()=>{
+ const lines=[[{text:"가가",type:"native",gloss:""},{text:"나나",type:"native",gloss:""}]];
+ const result=await fillDictionaryGlosses(lines,{fetcher:async()=>({ok:true,json:async()=>({})}),converter:x=>x,baseUrl:"https://limited-shards.test/",maxShards:1});
+ assert.equal(result.skippedShards,1);
+ assert.ok(lines[0].every(w=>!w.gloss));
+});

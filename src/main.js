@@ -5,7 +5,7 @@ import {fillDictionaryGlosses} from "./krdict.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
 import {validateAnnotationLines} from "./annotation-validation.js";
-import {enrichContextGlosses,restoreCachedContextGlosses,displayAnnotation,CONTEXT_CACHE_KEY} from "./contextual-meaning.js";
+import {displayAnnotation} from "./contextual-meaning.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -31,7 +31,7 @@ const curated=Object.fromEntries(seed.map(([word,type,gloss])=>[word,{type,gloss
 let custom={};try{const saved=JSON.parse(localStorage.getItem(KEY)||"{}");if(saved&&!Array.isArray(saved)&&typeof saved==="object")custom=saved;}catch{}
 const overrides=()=>({...curated,...custom});
 let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=null,translationController=null,renderSerial=0,showChinese=false,lineTranslations=[],songSearchController=null,lyricImportController=null;
-let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY),contextCache=loadCache(localStorage,CONTEXT_CACHE_KEY,{max:600});
+let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 const output=$("output"),notice=$("notice"),status=$("stats"),loading=$("loading"),loadingDetail=$("loadingDetail");
 const readerDialog=$("readerDialog"),readerLyrics=$("readerLyrics");
 let readerFontSize=30;
@@ -128,7 +128,7 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
-      element.tabIndex=0;element.title=w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
+      element.tabIndex=0;element.title=w.translationSource==="KRDICT"?"韓國語基礎詞典（繁體中文詞義），點擊可修正":w.translationSource==="garu-lemma"?"Garu 還原詞幹 + 內建詞義，點擊可修正":w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(displayAnnotation(w)){
         const note=document.createElement("span");note.className="gloss";
@@ -146,7 +146,10 @@ function draw(){
     output.append(entry);
   }
   const coverage=countKoreanCoverage(lines,{displayGloss:displayAnnotation});
-  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+"｜韓文詞義 "+coverage.glossed+"/"+coverage.words+"｜外來語 "+stats.loan;
+  const sourced=lines.flat().filter(p=>p.translationSource==="KRDICT"&&displayAnnotation(p)).length;
+  status.textContent="詞典 "+hanja.size.toLocaleString()+" 筆｜漢字詞 "+stats.hanja+
+   "｜韓文詞義 "+coverage.glossed+"/"+coverage.words+
+   "｜開源詞典補充 "+sourced+"｜未標註 "+coverage.missing+"｜外來語 "+stats.loan;
   syncOutputTitle();
   $("download").disabled=!input.trim();$("downloadPdf").disabled=!input.trim();$("copy").disabled=!input.trim();
   $("openReader").disabled=!input.trim();
@@ -206,25 +209,15 @@ async function render(){
   // Fill missing meanings from a real Korean learner dictionary before
   // calling an approximate translation service.
   loadingDetail.textContent="正在查詢開源韓中詞典…";
-  await fillDictionaryGlosses(lines,{signal:controller.signal,onProgress:({completed,total})=>{
+  const dictionaryResult=await fillDictionaryGlosses(lines,{signal:controller.signal,onProgress:({completed,total})=>{
     if(!controller.signal.aborted&&serial===renderSerial)
       loadingDetail.textContent="開源詞典查詢中 "+completed+" / "+total+"…";
   }});
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations,{contexts:koreanLines});
-  // Optional, conservative contrastive hints only for missing glosses.
-  // Do not overwrite any lexical or user-provided meaning.
-  loadingDetail.textContent="正在比對整句語境與韓文字詞…";
-  await enrichContextGlosses(lines,lineTranslations,{
-    cache:contextCache,signal:controller.signal,max:4,
-    onProgress:({attempted,total})=>{
-      if(!controller.signal.aborted&&serial===renderSerial)
-        loadingDetail.textContent="語境對位中 "+attempted+" / "+total+"…";
-    }
-  });
-  if(controller.signal.aborted||serial!==renderSerial)return;
-  saveCache(localStorage,CONTEXT_CACHE_KEY,contextCache,{max:600});
-
+  // No deletion-based retranslation: it is not a reliable word alignment
+  // algorithm, and may invent glosses unrelated to the Korean morphology.
+  // Missing terms continue to the optional dictionary/MT fallback.
   // Only words that remain without a contextual/dictionary gloss use
   // independent vocabulary MT. Never share this fallback across songs.
   const {total}=translationCandidates(lines,translations,80,{contexts:koreanLines});
@@ -244,7 +237,8 @@ async function render(){
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
   const missing=result?result.failed+Math.max(0,result.total-result.attempted):0;
-  message(missing?"翻譯流程已結束；部分詞語因免費服務限制未取得中文詞義，已保留原文。":"歌詞標註完成。");
+  const incomplete=dictionaryResult.failed||dictionaryResult.skippedShards;
+  message(missing||incomplete?"歌詞標註完成；部分詞典或免費翻譯請求未取得詞義，未確認的字詞保留原文。":"歌詞標註完成。");
  }catch(e){
   if(controller.signal.aborted||serial!==renderSerial)return;
   console.error(e);
@@ -271,7 +265,6 @@ $("editForm").addEventListener("submit",e=>{
   lines=splitLyrics($("source").value).map(analyzeLine);
   const sourceLines=splitLyrics($("source").value);
   applyTranslations(lines,translations,{contexts:sourceLines});
-  restoreCachedContextGlosses(lines,lineTranslations,contextCache);
   lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });

@@ -476,3 +476,41 @@ test('free Korean dictionary fills missing words without overwriting Hanja',asyn
  await expect(page.locator('#output')).toContainText('다람쥐(松鼠)');
  await expect(page.locator('#runLocalAI')).toHaveCount(0);
 });
+
+test('word coverage reports missing and dictionary-sourced counts without AI alignment',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>
+   route.fulfill({json:{responseStatus:200,responseData:{translatedText:'松鼠'}}}));
+ await page.route('https://cdn.jsdelivr.net/gh/basickorean/**',route=>
+   route.fulfill({json:{'다람쥐':[[['松鼠','小動物']]]}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('다람쥐');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#stats')).toContainText('開源詞典補充 1');
+ await expect(page.locator('#stats')).toContainText('未標註 0');
+ await expect(page.locator('#runLocalAI')).toHaveCount(0);
+});
+test('annotating a sentence no longer invokes deleted-word retranslation',async({page})=>{
+ const requests=[];
+ await page.route('https://api.mymemory.translated.net/**',route=>{
+  requests.push(new URL(route.request().url()).searchParams.get('q'));
+  return route.fulfill({json:{responseStatus:200,responseData:{translatedText:'今天晚上要散步'}}});
+ });
+ await page.route('https://cdn.jsdelivr.net/gh/basickorean/**',route=>route.fulfill({json:{}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('오늘 밤 산책할 거야');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ assertNoDeletedRequests(requests);
+});
+function assertNoDeletedRequests(requests){
+ // The complete Korean sentence is translated once; remaining requests must
+ // be isolated vocabulary, never a sentence with a word removed.
+ const full='오늘 밤 산책할 거야';
+ for(const query of requests){
+  if(query===full)continue;
+  if(query.includes(' ')&&query!==full)throw new Error('Unexpected deleted-word translation: '+query);
+ }
+}
