@@ -38,6 +38,11 @@ let analyzer=null,hanja=new Map(),initialized=false,lines=[],currentSelected=nul
 let lineCache=loadCache(localStorage,LINE_CACHE_KEY),translations=loadCache(localStorage,CACHE_KEY);
 let browserTranslator=null;
 let browserTranslatorPending=null;
+function needsAutomaticKoreanTranslation(){
+ const sourceLines=splitLyrics($("source").value.replace(/\r\n?/g,"\n"));
+ const supplied=alignProvidedTranslations(sourceLines,$("providedChinese").value);
+ return sourceLines.some((line,i)=>/[가-힣]/u.test(line)&&!supplied[i]);
+}
 function getBrowserTranslator(userGesture=false){
  if(browserTranslator)return Promise.resolve(browserTranslator);
  if(browserTranslatorPending)return browserTranslatorPending;
@@ -209,7 +214,7 @@ async function render({translatorPromise=null}={}){
  try{
   const koreanLines=splitLyrics(source);
   // Prefer browser-local translation, with MyMemory as automatic fallback.
-  if(koreanLines.some(line=>/[가-힣]/u.test(line))){
+  if(needsAutomaticKoreanTranslation()){
    loadingDetail.textContent="正在確認瀏覽器韓中翻譯是否可用…";
    browserTranslator=await (translatorPromise||getBrowserTranslator(false));
    if(controller.signal.aborted||serial!==renderSerial)return;
@@ -420,7 +425,8 @@ $("providedChinese").addEventListener("input",()=>{
  if(lines.length||!loading.hidden)invalidateOutput();
 });
 $("annotate").onclick=()=>{
- const translatorPromise=getBrowserTranslator(true);
+ const translatorPromise=needsAutomaticKoreanTranslation()
+  ?getBrowserTranslator(true):Promise.resolve(null);
  render({translatorPromise});
 };
 
