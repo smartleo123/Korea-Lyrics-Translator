@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchTrackByMetadata,normalizeSearchTitle,searchArtistTracks,groupArtistTracks,getLyricsForTrack,getKoreanLyricsWithFallback,inspectLyricLanguage,chooseKoreanLyrics,externalLyricsLinks} from '../src/song-search.js';
+import {normalizeTrack,decodeSyncedLyrics,searchTracks,searchTrackByMetadata,searchTrackWithArtistAliases,normalizeSearchTitle,artistNameVariants,artistMatches,searchArtistTracks,groupArtistTracks,getLyricsForTrack,getKoreanLyricsWithFallback,inspectLyricLanguage,chooseKoreanLyrics,externalLyricsLinks} from '../src/song-search.js';
 test('song search keeps metadata and limits results',async()=>{
  const fetcher=async(url)=>({ok:true,json:async()=>[{id:17,trackName:'예시',artistName:'가수',albumName:'앨범',duration:120}]});
  const items=await searchTracks('예시',{fetcher});
@@ -109,4 +109,36 @@ test('search without valid title returns empty results and does not call provide
  const result=await searchTrackByMetadata(' ','ILLIT',{fetcher:async()=>{called++;}});
  assert.deepEqual(result,[]);
  assert.equal(called,0);
+});
+
+test('BESTie English stage name falls back to verified Hangul alias 베스티',async()=>{
+ const params=[];
+ const fetcher=async(url)=>{
+  const q=new URL(url).searchParams.get('q');params.push(q);
+  return {ok:true,json:async()=>q==='베스티'?
+   [{id:901,trackName:'연애의 조건',artistName:'베스티(BESTie)',albumName:'Hot Baby'}]:
+   [{id:99,trackName:'Bestie',artistName:'Another Singer'}]};
+ };
+ const hits=await searchArtistTracks('bestie',{fetcher});
+ assert.deepEqual(params,['bestie','베스티']);
+ assert.equal(hits.length,1);assert.equal(hits[0].id,901);
+ assert.equal(artistMatches('베스티 (BESTie)','BESTie'),true);
+ assert.deepEqual(artistNameVariants('BESTie'),['BESTie','베스티']);
+});
+test('when an artist is not represented in the lyric catalog do not claim they do not exist',async()=>{
+ const urls=[];
+ const fetcher=async(url)=>{urls.push(url);return {ok:true,json:async()=>[]};};
+ const songs=await searchArtistTracks('BESTie',{fetcher});
+ assert.deepEqual(songs,[]);assert.equal(urls.length,2);
+});
+test('song title matching retries Hangul artist spelling before returning empty',async()=>{
+ const params=[];
+ const fetcher=async(url)=>{
+  const p=new URL(url).searchParams;params.push(p.get('artist_name'));
+  return {ok:true,json:async()=>p.get('artist_name')==='베스티'?
+   [{id:903,trackName:'연애의 조건',artistName:'베스티'}]:[]};
+ };
+ const songs=await searchTrackWithArtistAliases('연애의 조건','BESTie',{fetcher});
+ assert.equal(songs.length,1);
+ assert.deepEqual(params,['BESTie','베스티']);
 });
