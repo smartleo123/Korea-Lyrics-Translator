@@ -23,6 +23,60 @@ test('minimal lyrics placeholder, removed dictionary buttons, and downloadable P
 });
 
 import {test,expect} from '@playwright/test';
+test('fullscreen reading mode enlarges annotated lyrics, remembers font size and exits',async({page})=>{
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
+  responseStatus:200,responseData:{translatedText:'我愛你'}
+ }}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await expect(page.locator('#openReader')).toBeDisabled();
+ await page.locator('#title').fill('閱讀測試');
+ await page.locator('#source').fill('사랑해\\n\\n안녕');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await expect(page.locator('#openReader')).toBeEnabled();
+ await page.locator('#openReader').click();
+ await expect(page.locator('#readerDialog')).toBeVisible();
+ await expect(page.locator('#readerTitle')).toHaveText('閱讀測試');
+ await expect(page.locator('#readerLyrics .lyric-entry')).toHaveCount(3);
+ await expect(page.locator('#readerLyrics')).toContainText('사랑');
+ await expect(page.locator('#readerFontSize')).toHaveText('30px');
+ await page.getByRole('button',{name:'放大歌詞字體'}).click();
+ await expect(page.locator('#readerFontSize')).toHaveText('34px');
+ await expect(page.locator('#readerLyrics')).toHaveCSS('font-size','34px');
+ await page.getByRole('button',{name:'縮小歌詞字體'}).click();
+ await expect(page.locator('#readerFontSize')).toHaveText('30px');
+ await page.keyboard.press('Escape');
+ await expect(page.locator('#readerDialog')).not.toBeVisible();
+ await page.locator('#openReader').click();
+ await expect(page.locator('#readerDialog')).toBeVisible();
+ await page.locator('#closeReader').click();
+ await expect(page.locator('#readerDialog')).not.toBeVisible();
+ await page.locator('#source').fill('새로 바꾼 가사');
+ await expect(page.locator('#openReader')).toBeDisabled();
+});
+test('fullscreen reading dialog fits mobile and renders enabled Chinese translation',async({page})=>{
+ await page.setViewportSize({width:375,height:667});
+ await page.route('https://api.mymemory.translated.net/**',route=>route.fulfill({json:{
+  responseStatus:200,responseData:{translatedText:'我愛你'}
+ }}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ await page.locator('#source').fill('사랑해');
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await page.locator('#openReader').click();
+ await expect(page.locator('#readerDialog')).toBeVisible();
+ await expect(page.locator('#readerLyrics .line-translation')).toHaveCount(1);
+ const bounds=await page.locator('#readerDialog').boundingBox();
+ expect(bounds.x).toBeGreaterThanOrEqual(0);
+ expect(bounds.x+bounds.width).toBeLessThanOrEqual(376);
+ await page.locator('#closeReader').click();
+ await expect(page.locator('#readerDialog')).not.toBeVisible();
+});
+
 test('usage help opens from upper-right, consolidates text, and closes by button or Escape',async({page})=>{
  await page.goto('/');
  await expect(page.locator('#helpOpen')).toBeVisible();
