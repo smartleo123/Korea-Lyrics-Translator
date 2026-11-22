@@ -31,7 +31,7 @@ test('fullscreen reading mode enlarges annotated lyrics, remembers font size and
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
  await expect(page.locator('#openReader')).toBeDisabled();
  await page.locator('#title').fill('閱讀測試');
- await page.locator('#source').fill('사랑해\\n\\n안녕');
+ await page.locator('#source').fill('사랑해\n\n안녕');
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
  await expect(page.locator('#openReader')).toBeEnabled();
