@@ -3,7 +3,7 @@ test('White Lie lyric inflections keep contextual meanings rather than unrelated
  await page.goto('/');
  await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
  await page.locator('#title').fill('White Lie');
- await page.locator('#source').fill(['내 맘이 아파와','진짜 네가 보일 때마다','방금 한 말은','하얀 거짓말'].join('\\n'));
+ await page.locator('#source').fill(['내 맘이 아파와','진짜 네가 보일 때마다','방금 한 말은','하얀 거짓말'].join('\n'));
  await page.locator('#annotate').click();
  await expect(page.locator('#loading')).toBeHidden({timeout:45000});
  const annotation=await page.locator('#output').innerText();
