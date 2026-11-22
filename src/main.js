@@ -5,7 +5,7 @@ import {completeUnannotatedKorean,completeKnownCompoundSuffixes,countKoreanCover
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
-import {searchTracks,searchTrackByMetadata,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
+import {searchTracks,searchTrackWithArtistAliases,artistMatches,artistNameVariants,searchArtistTracks,groupArtistTracks,getKoreanLyricsWithFallback} from "./song-search.js";
 import {alignProvidedTranslations,translateLines,LINE_CACHE_KEY} from "./line-translation.js";
 import {translateMissing,applyTranslations,translationCandidates,CACHE_KEY} from "./translation.js";
 const $=id=>document.getElementById(id);
@@ -247,14 +247,18 @@ async function runSongSearch(artistMode){
  status.textContent="正在搜尋歌曲…";
  $("findLyrics").disabled=true;$("findArtistSongs").disabled=true;
  try{
-  let found=artistMode?await searchArtistTracks(artist,{signal:controller.signal}):await searchTrackByMetadata(title,artist,{signal:controller.signal});
+  let found=artistMode?await searchArtistTracks(artist,{signal:controller.signal}):await searchTrackWithArtistAliases(title,artist,{signal:controller.signal});
   if(controller.signal.aborted)return;
-  // A title+artist search can be too restrictive for alternate stage names.
-  // Only then fall back to a broad title search, still checking the artist.
   if(!found.length&&!artistMode&&artist)found=await searchTracks(title,{signal:controller.signal});
   if(controller.signal.aborted)return;
-  const matches=artistMode||!artist?found:found.filter(t=>t.artist.normalize("NFKC").toLowerCase().includes(artist.normalize("NFKC").toLowerCase()));
-  if(!matches.length){status.textContent="沒有找到相關歌曲，請換個歌名或藝名，或自行貼上歌詞。";return;}
+  const matches=artistMode||!artist?found:found.filter(t=>artistMatches(t.artist,artist));
+  if(!matches.length){
+   const variants=artist?artistNameVariants(artist):[];
+   status.textContent=artistMode
+     ?"LRCLIB 尚未找到這個藝名對應的歌詞紀錄"+(variants.length>1?"（已嘗試英文／韓文藝名）":"")+"；不代表歌手不存在。可以改用歌曲名稱搜尋或自行貼上韓文歌詞。"
+     :"LRCLIB 尚未收錄符合歌名"+(artist?"與歌手":"")+"的歌詞紀錄，並不代表歌曲不存在。可換個拼法或自行貼上歌詞。";
+   return;
+  }
   displayTracks(matches,artistMode);
   status.textContent="請選擇歌曲並帶入歌詞。";
  }catch(err){
