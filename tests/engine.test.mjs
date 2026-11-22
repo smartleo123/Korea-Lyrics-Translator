@@ -38,3 +38,12 @@ test('unknown unrelated text retains clear separation from confirmed Hanja',()=>
  assert.equal(parts.map(x=>x.text).join(''),'용서 가자');
  assert.equal(parts[0].type,'hanja');
 });
+
+test('inflected verbs never inherit accidental Hanja homographs',()=>{
+ const dict=new Map([['지샌',['智善']],['밤',['夜']],['감각',['感覺']]]);
+ assert.equal(classifyHeadword('지샌','VV',dict).type,'native');
+ assert.equal(classifyHeadword('지샌',undefined,dict).type,'unknown');
+ assert.equal(classifyHeadword('감각','NNG',dict).type,'hanja');
+ const parts=annotateSpan({surface:'지샌',morphs:[{text:'지새',pos:'VV'},{text:'ㄴ',pos:'ETM'}]},dict);
+ assert.equal(parts.some(p=>p.type==='hanja'),false);
+});
