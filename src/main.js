@@ -2,6 +2,7 @@ import {Garu} from "garu-ko/browser";
 import {annotateLine} from "./engine.js";
 import {COMMON_GLOSSARY} from "./glossary.js";
 import {completeUnannotatedKorean,countKoreanCoverage} from "./coverage.js";
+import {validateAnnotationLines} from "./annotation-validation.js";
 
 import {loadCache,saveCache} from "./cache.js";
 import {splitLyrics} from "./layout.js";
@@ -124,7 +125,7 @@ function draw(){
       if(w.type==="plain"){div.append(document.createTextNode(w.text));continue;}
       const element=document.createElement("span");
       element.className="word "+(["ambiguous","unknown"].includes(w.type)?"native":w.type);
-      element.tabIndex=0;element.title=w.translationSource==="MyMemory"?"MyMemory 機器翻譯，非經詞典驗證；點擊修改":w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
+      element.tabIndex=0;element.title=w.translationSource==="MyMemory"?(w.contextEvidence==="not-literal"?"單字機譯未在整句中文逐字出現；整句可能使用不同表達，點擊可修正":"MyMemory 單字機譯，請依整句確認；點擊修改"):w.translationSource?.startsWith("curated")?"內建中文詞義，點擊可修正":w.choices?.length?"候選："+w.choices.join("／")+"（點擊選擇）":"點擊修改詞源與註解";
       element.append(document.createTextNode(w.text));
       if(w.gloss){
         const note=document.createElement("span");note.className="gloss";
@@ -211,7 +212,10 @@ async function render(){
   }
   if(controller.signal.aborted||serial!==renderSerial)return;
   applyTranslations(lines,translations);
-  // The Chinese sentence is translated first; keep lexical meanings even when\n  // expressed differently in a fluent sentence. MT does not provide alignment.\n  saveCache(localStorage,CACHE_KEY,translations);
+  // Evidence can guide manual review, but sentence translation does not
+  // align individual words; preserve complete lexical annotations.
+  lines=validateAnnotationLines(lines,lineTranslations,{custom});
+  saveCache(localStorage,CACHE_KEY,translations);
   if(controller.signal.aborted||serial!==renderSerial)return;
   draw();setLoading(false);
   const missing=result?result.failed+Math.max(0,result.total-result.attempted):0;
@@ -241,6 +245,7 @@ $("editForm").addEventListener("submit",e=>{
   // Local correction must not start dozens of MyMemory calls again.
   lines=splitLyrics($("source").value).map(analyzeLine);
   applyTranslations(lines,translations);
+  lines=validateAnnotationLines(lines,lineTranslations,{custom});
   draw();message("已儲存修正："+word);
 });
 function esc(x){return String(x).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
