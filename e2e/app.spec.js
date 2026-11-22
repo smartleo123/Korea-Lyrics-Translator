@@ -70,6 +70,33 @@ test('long annotated lines never squeeze the left search panel',async({page})=>{
  expect(overflow).toBe(true);
  await expect(page.locator('#findLyrics')).toBeVisible();
 });
+test('showing translated long lyric lines does not shrink the input panel',async({page})=>{
+ await page.setViewportSize({width:1440,height:900});
+ await page.route('https://api.mymemory.translated.net/**',route=>
+  route.fulfill({json:{responseStatus:200,responseData:{translatedText:'這是一段很長的中文翻譯'.repeat(30)}}}));
+ await page.goto('/');
+ await expect(page.locator('#annotate')).toBeEnabled({timeout:30000});
+ const original=await page.locator('.layout > .panel').first().boundingBox();
+ await page.locator('#source').fill('내 심장이 계속 뛰어');
+ await page.locator('#annotate').click();
+ await expect(page.locator('#loading')).toBeHidden({timeout:45000});
+ await page.locator('#toggleChinese').click();
+ await expect(page.locator('.line-translation')).toBeVisible();
+ const after=await page.locator('.layout > .panel').first().boundingBox();
+ expect(after.width).toBeGreaterThanOrEqual(410);
+ expect(Math.abs(original.width-after.width)).toBeLessThan(2);
+ expect(await page.locator('#output').evaluate(el=>el.scrollWidth>el.clientWidth)).toBe(true);
+});
+
+test('medium viewport uses one column instead of squeezing inputs',async({page})=>{
+ await page.setViewportSize({width:900,height:800});
+ await page.goto('/');
+ const input=await page.locator('.layout > .panel').first().boundingBox();
+ const result=await page.locator('.layout > .panel').nth(1).boundingBox();
+ expect(result.y).toBeGreaterThanOrEqual(input.y+input.height);
+ expect(input.width).toBeGreaterThan(600);
+});
+
 test('search panel and annotations stack cleanly on small screens',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto('/');
